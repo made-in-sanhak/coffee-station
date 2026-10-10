@@ -16,3 +16,49 @@ __pycache__/
 .vscode/
 *.iml
 .DS_Store
+
+
+
+# ===== 비밀값 (절대 올리지 않음) =====
+.env
+.env.*
+!.env.example
+backend/src/main/resources/application-local.yml
+backend/src/main/resources/application-prod.yml
+*.pem
+*.key
+
+# ===== OS / IDE =====
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.iml
+
+# ===== backend (Gradle) =====
+backend/.gradle/
+backend/build/
+backend/out/
+!backend/gradle/wrapper/gradle-wrapper.jar
+
+# ===== ai-server / data (Python) =====
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# ===== frontend (React Native) =====
+node_modules/
+frontend/android/app/build/
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/ios/Pods/
+frontend/ios/build/
+*.keystore
+!debug.keystore
+*.apk
+*.aab
+
+# ===== logs =====
+*.log

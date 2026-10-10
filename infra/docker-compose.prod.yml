@@ -1,0 +1,21 @@
+# 배포용: backend + ai-server + Redis (DB는 AWS RDS 사용)
+services:
+  backend:
+    build: ../backend
+    env_file: ../.env
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+      - ai-server
+
+  ai-server:
+    build: ../ai-server
+    env_file: ../.env
+    expose:
+      - "8000"          # 외부에 열지 않고 backend에서만 접근
+
+  redis:
+    image: redis:7-alpine

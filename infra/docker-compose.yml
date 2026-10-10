@@ -1,0 +1,24 @@
+# 로컬 개발용: PostGIS + Redis
+# 실행 (infra 폴더에서): docker compose --env-file ../.env up -d
+# 종료:                  docker compose down
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: coffee-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-coffee_station}
+      POSTGRES_USER: ${POSTGRES_USER:-coffee}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-coffee}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: coffee-redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  pgdata:

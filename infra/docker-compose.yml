@@ -1,24 +1,23 @@
-# 로컬 개발용: PostGIS + Redis
+# 로컬 개발용: MySQL
 # 실행 (infra 폴더에서): docker compose --env-file ../.env up -d
-# 종료:                  docker compose down
+# 종료:                  docker compose down        (데이터까지 지우려면 down -v)
 services:
-  postgres:
-    image: postgis/postgis:16-3.4
-    container_name: coffee-postgres
+  mysql:
+    image: mysql:8.4
+    container_name: coffee-mysql
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-coffee_station}
-      POSTGRES_USER: ${POSTGRES_USER:-coffee}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-coffee}
+      MYSQL_DATABASE: ${DB_NAME:-coffee_station}
+      MYSQL_USER: ${DB_USER:-coffee}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-change-me}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-change-me-root}
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
     ports:
-      - "5432:5432"
+      - "3306:3306"
     volumes:
-      - pgdata:/var/lib/postgresql/data
-
-  redis:
-    image: redis:7-alpine
-    container_name: coffee-redis
-    ports:
-      - "6379:6379"
+      - mysqldata:/var/lib/mysql
 
 volumes:
-  pgdata:
+  mysqldata:

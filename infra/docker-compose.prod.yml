@@ -1,14 +1,13 @@
-# 배포용: backend + ai-server + Redis (DB는 AWS RDS 사용)
+# 배포용: backend (+ ai-server 사용 시). DB는 AWS RDS(MySQL)를 사용하고 .env 의 DB_HOST 를 RDS 주소로 지정합니다.
 services:
   backend:
     build: ../backend
     env_file: ../.env
     environment:
-      SPRING_PROFILES_ACTIVE: prod
+      NODE_ENV: production
     ports:
       - "8080:8080"
     depends_on:
-      - redis
       - ai-server
 
   ai-server:
@@ -16,6 +15,3 @@ services:
     env_file: ../.env
     expose:
       - "8000"          # 외부에 열지 않고 backend에서만 접근
-
-  redis:
-    image: redis:7-alpine

@@ -1,10 +1,16 @@
-FROM eclipse-temurin:21-jdk AS build
+FROM node:22-alpine AS build
 WORKDIR /app
-COPY . .
-RUN chmod +x gradlew && ./gradlew bootJar -x test
+COPY package*.json ./
+RUN npm ci
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build
 
-FROM eclipse-temurin:21-jre
+FROM node:22-alpine
 WORKDIR /app
-COPY --from=build /app/build/libs/*.jar app.jar
+ENV NODE_ENV=production
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY --from=build /app/dist ./dist
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+CMD ["node", "dist/server.js"]

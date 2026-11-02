@@ -1,97 +1,63 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Coffee Station 프런트엔드
 
-# Getting Started
+React Native와 TypeScript로 작성한 커피 매장 탐색 앱입니다. 카카오 OAuth로 받은 인증 코드를 백엔드와 교환하고, 인증 상태에 따라 로그인 화면 또는 지도 화면을 표시합니다.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## 개발 환경
 
-## Step 1: Start Metro
+- Node.js 22.11 이상
+- JDK 21
+- Android SDK Platform 37, Build Tools 37.0.0
+- NDK 27.1.12297006, CMake 3.22.1
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+Windows에서는 프로젝트와 Gradle 캐시를 짧은 영문 경로에 두는 것을 권장합니다. `JAVA_HOME`은 JDK 21, `ANDROID_HOME`은 설치한 Android SDK 경로로 설정합니다.
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+## 환경 설정
 
-```sh
-# Using npm
-npm start
+저장소 루트의 `.env.example`을 참고해 로컬 `.env`를 구성합니다. 실제 값은 버전 관리에 포함하지 않습니다.
 
-# OR using Yarn
-yarn start
-```
+| 변수 | 용도 |
+|---|---|
+| `KAKAO_REST_API_KEY` | 카카오 로그인 앱 식별자 |
+| `KAKAO_REDIRECT_URI` | 카카오 콘솔에 등록한 OAuth Redirect URI |
+| `KAKAO_MAP_JS_KEY` | 카카오 지도 JavaScript 키 |
+| `USE_MOCK_API` | 기존 임시 매장 데이터 사용 여부. 실제 API 연동은 `false` |
 
-## Step 2: Build and run your app
+카카오 지도 Web 플랫폼 도메인은 `KakaoMapView.tsx`의 `baseUrl`과 일치해야 합니다. API 기본 주소는 `src/api/client.ts`에서 설정하며 Android 에뮬레이터의 PC 접근 주소는 `10.0.2.2`입니다. 백엔드 API 계약은 저장소의 `docs/api.md`를 확인합니다.
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+## 실행 및 검사
 
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
-```
-
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+`frontend` 폴더에서 실행합니다.
 
 ```sh
-bundle install
+npm ci
+npm run typecheck
+npm run lint
+npm test -- --runInBand
 ```
 
-Then, and every time you update your native dependencies, run:
+에뮬레이터를 켠 뒤, 첫 터미널에서 `npm start`, 두 번째 터미널에서 `npm run android`를 실행합니다. Android 17의 개발 서버 접근 권한 요청은 Metro 연결에 사용됩니다.
+
+Android Studio에서는 `frontend/android` 폴더를 열고 Gradle Sync를 수행합니다. Gradle JVM은 JDK 21로 지정하고, `app` 모듈의 `debug` 변형과 실행 기기를 선택한 뒤 Run 합니다. `debug` 실행에는 Metro가 필요합니다. SDK 경로는 Android Studio에서 확인하거나 로컬 `android/local.properties`에 설정하며 이 파일은 공유하지 않습니다.
+
+터미널 빌드:
 
 ```sh
-bundle exec pod install
+cd android
+# Windows: gradlew.bat assembleDebug
+./gradlew assembleDebug
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+## 주요 코드
 
-```sh
-# Using npm
-npm run ios
+| 경로 | 역할 |
+|---|---|
+| `src/navigation/RootNavigator.tsx` | 인증 상태에 따른 화면 전환 |
+| `src/screens/auth/` | 로그인 화면과 카카오 OAuth WebView |
+| `src/store/authStore.ts` | 로그인 토큰과 사용자 상태 |
+| `src/api/client.ts` | 인증 헤더와 공통 API 응답 처리 |
+| `src/api/endpoints/` | 인증·매장 API |
+| `src/api/queries/` | TanStack Query 조회·변경 hook |
+| `src/screens/map/MapScreen.tsx` | 지도·메뉴 필터·매장 카드 |
+| `src/components/map/` | 카카오 지도 WebView와 마커·카드 |
 
-# OR using Yarn
-yarn ios
-```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+외부 로그인, 지도, 실제 매장 조회에는 해당 서비스 설정과 백엔드가 필요합니다. 미설정 상태에서는 기존 설정 안내 또는 연결 오류가 표시됩니다.

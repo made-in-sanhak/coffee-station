@@ -14,9 +14,15 @@ import {
   UserRound,
 } from 'lucide-react-native';
 
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
 import { colors } from '../utils/theme';
+import type { RootStackParamList } from '../navigation/types';
 
 type TabName = '지도' | '추천' | '휴게소' | '내 기록';
+
+type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
 const TABS = [
   { name: '지도' as const, Icon: Map },
@@ -32,8 +38,18 @@ interface BottomTabBarProps {
 export default function BottomTabBar({
   activeTab,
 }: BottomTabBarProps) {
+  const navigation = useNavigation<Navigation>();
+
   const handleTabPress = (tab: TabName) => {
-    if (tab === '지도') return;
+    if (tab === '지도') {
+      navigation.navigate('Map');
+      return;
+    }
+
+    if (tab === '추천') {
+      navigation.navigate('Recommendation');
+      return;
+    }
 
     Alert.alert(
       tab,

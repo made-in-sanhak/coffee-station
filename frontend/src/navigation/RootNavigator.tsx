@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
@@ -6,6 +7,8 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import PreferenceScreen from '../screens/auth/PreferenceScreen';
 import MapScreen from '../screens/map/MapScreen';
 import NotificationScreen from '../screens/map/NotificationScreen';
+import RecommendationScreen from '../screens/recommend/RecommendationScreen';
+import RecommendationResultScreen from '../screens/recommend/RecommendationResultScreen';
 
 import { useAuthStore } from '../store/authStore';
 import { usePreferenceStore } from '../store/preferenceStore';
@@ -59,6 +62,16 @@ export default function RootNavigator() {
           <Stack.Screen
             name="Notification"
             component={NotificationScreen}
+          />
+
+          <Stack.Screen
+            name="Recommendation"
+            component={RecommendationScreen}
+          />
+
+          <Stack.Screen
+            name="RecommendationResult"
+            component={RecommendationResultScreen}
           />
         </>
       ) : (

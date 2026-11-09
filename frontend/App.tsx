@@ -5,8 +5,10 @@
  * @format
  */
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
+import { useState } from 'react';
+import RecommendationScreen from './src/RecommendationScreen';
+import ReviewSummaryScreen from './src/ReviewSummaryScreen';
+import { Button, StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
 import {
   SafeAreaProvider,
   useSafeAreaInsets,
@@ -25,13 +27,12 @@ function App() {
 
 function AppContent() {
   const safeAreaInsets = useSafeAreaInsets();
+  const [showReviews, setShowReviews] = useState(false);
 
   return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
+    <View style={[styles.container, { paddingTop: safeAreaInsets.top, paddingBottom: safeAreaInsets.bottom }]}>
+      <Button title={showReviews ? '추천 화면으로' : '모의 리뷰 보기'} onPress={() => setShowReviews(!showReviews)} />
+      {showReviews ? <ReviewSummaryScreen /> : <RecommendationScreen />}
     </View>
   );
 }

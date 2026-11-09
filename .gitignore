@@ -64,3 +64,4 @@ frontend/ios/build/
 *.log
 # ===== backend (Node.js) =====
 backend/dist/
+ai-server/.cache/

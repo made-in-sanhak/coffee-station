@@ -7,6 +7,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 export const env = {
   port: Number(process.env.PORT ?? 8080),
+  host: process.env.HOST ?? '0.0.0.0',
   nodeEnv: process.env.NODE_ENV ?? 'development',
   db: {
     host: process.env.DB_HOST ?? 'localhost',
@@ -16,4 +17,6 @@ export const env = {
     password: process.env.DB_PASSWORD ?? '',
   },
   jwtSecret: process.env.JWT_SECRET ?? '',
+  aiServerUrl: process.env.AI_SERVER_URL ?? 'http://127.0.0.1:8000',
+  internalApiToken: process.env.INTERNAL_API_TOKEN ?? '',
 };

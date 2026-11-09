@@ -1,0 +1,87 @@
+{
+  "is_mock": true,
+  "description": "API 연결 확인 전용 가상 데이터",
+  "cafes": [
+    {
+      "id": "test-cafe",
+      "name": "가상 테스트 카페",
+      "address": "실재하지 않는 매장",
+      "location": null,
+      "tags": []
+    }
+  ],
+  "offers": [
+    {
+      "id": "m1",
+      "cafe_id": "test-cafe",
+      "menu_id": "m1",
+      "name": "아메리카노",
+      "category": "COFFEE",
+      "size": "REGULAR",
+      "temperature": "HOT",
+      "price_krw": 3500,
+      "sweetness": null,
+      "available": true
+    },
+    {
+      "id": "m2",
+      "cafe_id": "test-cafe",
+      "menu_id": "m2",
+      "name": "카페라떼",
+      "category": "COFFEE",
+      "size": "REGULAR",
+      "temperature": "HOT",
+      "price_krw": 4500,
+      "sweetness": null,
+      "available": true
+    },
+    {
+      "id": "m3",
+      "cafe_id": "test-cafe",
+      "menu_id": "m3",
+      "name": "바닐라라떼",
+      "category": "COFFEE",
+      "size": "REGULAR",
+      "temperature": "HOT",
+      "price_krw": 5000,
+      "sweetness": null,
+      "available": true
+    },
+    {
+      "id": "m4",
+      "cafe_id": "test-cafe",
+      "menu_id": "m4",
+      "name": "에스프레소",
+      "category": "COFFEE",
+      "size": "REGULAR",
+      "temperature": "HOT",
+      "price_krw": 3000,
+      "sweetness": null,
+      "available": true
+    },
+    {
+      "id": "m5",
+      "cafe_id": "test-cafe",
+      "menu_id": "m5",
+      "name": "디카페인 커피",
+      "category": "COFFEE",
+      "size": "REGULAR",
+      "temperature": "HOT",
+      "price_krw": 4000,
+      "sweetness": null,
+      "available": true
+    },
+    {
+      "id": "m6",
+      "cafe_id": "test-cafe",
+      "menu_id": "m6",
+      "name": "홍차",
+      "category": "TEA",
+      "size": "REGULAR",
+      "temperature": "HOT",
+      "price_krw": 3800,
+      "sweetness": null,
+      "available": true
+    }
+  ]
+}

@@ -1,6 +1,13 @@
 # Coffee Station AI Agent 개발 현황 및 팀 공유 자료
 
+> 최신 전환: 실시간 조건 추출·추천은 Express로 통합하고 Python은 리뷰 분석 작업으로 분리한다.
+> [이전 현황](../backend/AI_MIGRATION.md). 아래 FastAPI 구조 설명은 기존 프로토타입 기록이다.
+
 작성 기준: 2026-11-09
+
+향후 합의된 방향은 [DEVELOPMENT_DIRECTION.md](../ai-server/DEVELOPMENT_DIRECTION.md)를 따른다.
+자연어 해석은 LLM, 추천 계산은 Python, 리뷰 요약·분석·추천용 특징 추출은 Agent가 담당한다.
+리뷰 분석은 변경 시 갱신하고 추천 시 저장된 특징을 재사용하는 방향이다. 이는 후속 개발 계획이다.
 
 ## 1. 프로젝트에서 AI가 담당하는 역할
 

@@ -1,25 +1,16 @@
 import { Router } from 'express';
+import { readFile } from 'node:fs/promises';
 import { env } from '../config/env';
 import { AppError } from '../common/AppError';
 import { ok } from '../common/response';
-
+import { validateReviewArtifact } from '../recommendations/reviewArtifact';
 const router = Router();
 router.get('/:cafeId/review-summary', async (req, res) => {
-  if (!/^[1-9]\d*$/.test(req.params.cafeId)) throw new AppError(422, '매장 ID를 확인하세요.');
-  if (!env.internalApiToken) throw new AppError(503, '내부 API 설정을 확인하세요.');
-  let response: Response;
-  try {
-    response = await fetch(new URL(`/cafes/${req.params.cafeId}/review-summary`, env.aiServerUrl), {
-      headers: { 'X-Internal-Token': env.internalApiToken }, signal: AbortSignal.timeout(10_000),
-    });
-  } catch {
-    throw new AppError(502, '리뷰 요약 서비스에 연결할 수 없습니다.');
-  }
-  if (!response.ok) throw new AppError(response.status === 404 ? 404 : 502, '리뷰 요약을 조회할 수 없습니다.');
-  const data = await response.json().catch(() => null);
-  if (!data || !['READY', 'NO_REVIEWS'].includes(data.status) || !data.summary) {
-    throw new AppError(502, '리뷰 요약 응답 형식 오류');
-  }
-  res.json(ok(data));
+  if (env.nodeEnv === 'production') { throw new AppError(503, '모의 리뷰 분석은 운영에서 비활성화됩니다.'); }
+  if (req.params.cafeId !== '990001') { throw new AppError(404, '모의 분석 대상 매장이 아닙니다.'); }
+  let data;
+  try { data = JSON.parse(await readFile(env.reviewSummaryFile, 'utf8')); }
+  catch { throw new AppError(503, '먼저 모의 리뷰 분석 작업을 실행하세요.'); }
+  res.json(ok(validateReviewArtifact(data, 990001)));
 });
 export default router;

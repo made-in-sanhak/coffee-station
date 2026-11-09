@@ -1,5 +1,10 @@
 # Coffee Station AI 서버
 
+> 최신 방향은 Express 실시간 통합 + Python 리뷰 분석 작업이다.
+> [전환 현황·실행 방법](../backend/AI_MIGRATION.md). 아래 FastAPI 안내는 이전 실습 구조다.
+
+향후 역할 분담과 개발 순서: [DEVELOPMENT_DIRECTION.md](DEVELOPMENT_DIRECTION.md).
+
 최종 현황 정리: 2026-11-09. 팀 공유 설명은 [AI_AGENT_OVERVIEW.md](../docs/AI_AGENT_OVERVIEW.md)를 기준으로 읽으세요.
 
 ## 현재 구현

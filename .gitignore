@@ -65,3 +65,4 @@ frontend/ios/build/
 # ===== backend (Node.js) =====
 backend/dist/
 ai-server/.cache/
+backend/artifacts/

@@ -14,15 +14,9 @@ import {
   UserRound,
 } from 'lucide-react-native';
 
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
 import { colors } from '../utils/theme';
-import type { RootStackParamList } from '../navigation/types';
 
-type TabName = '지도' | '추천' | '휴게소' | '내 기록';
-
-type Navigation = NativeStackNavigationProp<RootStackParamList>;
+export type TabName = '지도' | '추천' | '휴게소' | '내 기록';
 
 const TABS = [
   { name: '지도' as const, Icon: Map },
@@ -32,24 +26,21 @@ const TABS = [
 ];
 
 interface BottomTabBarProps {
-  activeTab: TabName;
+  activeTab: TabName | undefined;
+  onTabPress?: (tab: TabName) => void;
 }
 
 export default function BottomTabBar({
   activeTab,
+  onTabPress,
 }: BottomTabBarProps) {
-  const navigation = useNavigation<Navigation>();
-
   const handleTabPress = (tab: TabName) => {
-    if (tab === '지도') {
-      navigation.navigate('Map');
+    if (onTabPress) {
+      onTabPress(tab);
       return;
     }
 
-    if (tab === '추천') {
-      navigation.navigate('Recommendation');
-      return;
-    }
+    if (tab === '지도') return;
 
     Alert.alert(
       tab,
@@ -68,7 +59,8 @@ export default function BottomTabBar({
             key={tab.name}
             style={styles.tab}
             onPress={() => handleTabPress(tab.name)}
-            accessibilityRole="button"
+            accessibilityRole="tab"
+            accessibilityState={{ selected: isActive }}
             accessibilityLabel={tab.name}
           >
             <Icon

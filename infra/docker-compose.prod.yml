@@ -1,4 +1,6 @@
-# 배포용: backend (+ ai-server 사용 시). DB는 AWS RDS(MySQL)를 사용하고 .env 의 DB_HOST 를 RDS 주소로 지정합니다.
+# 배포용: backend 만 실행합니다. (실시간 AI 추천은 Express 에서 Gemini 를 직접 호출)
+# DB는 AWS RDS(MySQL)를 사용하고 .env 의 DB_HOST 를 RDS 주소로 지정합니다.
+# ALB 뒤 EC2 2대에 같은 이미지·같은 .env 로 실행합니다. (JWT_SECRET 이 다르면 토큰 검증 실패)
 services:
   backend:
     build: ../backend
@@ -7,11 +9,4 @@ services:
       NODE_ENV: production
     ports:
       - "8080:8080"
-    depends_on:
-      - ai-server
-
-  ai-server:
-    build: ../ai-server
-    env_file: ../.env
-    expose:
-      - "8000"          # 외부에 열지 않고 backend에서만 접근
+    restart: unless-stopped

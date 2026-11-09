@@ -35,8 +35,6 @@ export function loadSettings(values: NodeJS.ProcessEnv) {
       password: values.DB_PASSWORD ?? '',
     },
     jwtSecret: values.JWT_SECRET ?? '',
-    aiServerUrl: values.AI_SERVER_URL ?? 'http://127.0.0.1:8000',
-    internalApiToken: values.INTERNAL_API_TOKEN ?? '',
     extractionMode,
     geminiApiKey: values.GEMINI_API_KEY ?? '',
     geminiModel: values.GEMINI_MODEL ?? '',

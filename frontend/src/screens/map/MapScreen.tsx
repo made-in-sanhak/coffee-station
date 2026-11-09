@@ -8,6 +8,7 @@ import { useAuthStore } from '../../store/authStore';
 import type { Coordinate, MenuCategory } from '../../types/store';
 import { formatPrice } from '../../utils/format';
 import { colors } from '../../utils/theme';
+import BottomTabBar from '../../navigation/BottomTabBar';
 
 // 현재 위치 연동 전까지 쓰는 시작 위치 (서울시청)
 const DEFAULT_CENTER: Coordinate = { latitude: 37.5665, longitude: 126.978 };
@@ -100,6 +101,7 @@ export default function MapScreen() {
         )}
         {selectedStore && <StoreCard store={selectedStore} />}
       </View>
+      <BottomTabBar activeTab="지도" />
     </SafeAreaView>
   );
 }

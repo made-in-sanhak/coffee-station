@@ -1,8 +1,8 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 process.env.NODE_ENV='test'; process.env.EXTRACTION_MODE='mock';
-const {conditions,validateProposal}=require('../dist/recommendations/contracts');
-const {extract}=require('../dist/recommendations/extraction');
+const {conditions,validateProposal}=require('../dist/modules/recommendations/contracts');
+const {extract}=require('../dist/modules/recommendations/extraction');
 const {env}=require('../dist/config/env');
 const proposal=()=>({max_price_krw:null,category:null,sort_by:null,evidence:{},unresolved:[]});
 test('strict condition types and boundaries',()=>{

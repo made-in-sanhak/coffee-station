@@ -1,8 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import healthRouter from './routes/health';
-import recommendationsRouter from './routes/recommendations';
-import reviewSummariesRouter from './routes/reviewSummaries';
+import recommendationsRouter from './modules/recommendations/router';
+import reviewSummariesRouter from './modules/reviewSummaries/router';
 import { errorHandler, notFound } from './middlewares/errorHandler';
 
 export const app = express();

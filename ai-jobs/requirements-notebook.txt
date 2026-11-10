@@ -1,0 +1,4 @@
+# Optional: execute and inspect the retained notebooks (Python 3.11+).
+ipykernel==7.4.0
+nbformat==5.11.1
+nbclient==0.11.0

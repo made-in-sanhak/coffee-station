@@ -31,7 +31,7 @@
 12. 가격 검증일·판매 상태·옵션 정규화 후 운영 추천 Repository로 전환.
 13. 거리 추천, 리뷰/취향 개인화는 해당 데이터 확보 후 진행.
 
-노트북: ai-server/notebooks/real_data_ready.ipynb.
-ai-server/.venv 커널, Docker 실행 후 RUN_HAENGSIN_TEST=True로 테스트한다.
+노트북: ai-jobs/notebooks/real_data_ready.ipynb.
+ai-jobs/.venv 커널, Docker 실행 후 RUN_HAENGSIN_TEST=True로 테스트한다.
 저장된 노트북 기본값은 False이며 결과 출력은 저장하지 않았다.
 모의 데이터 노트북은 계속 별도로 유지한다. 서버 추천 기본 설정도 변경하지 않았다.

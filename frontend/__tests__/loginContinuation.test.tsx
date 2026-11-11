@@ -120,8 +120,12 @@ test.each(['preview','service'] as const)('fresh guest -> %s leaves branch repla
   usePreferenceStore.setState({ isCompleted: false });
   const nav = stack(false, false); nav.push('KakaoLogin');
   const actionsBefore = nav.actions.length;
-  const tree = await mount(nav.navigation); await sendCode(tree);
-  expect(mockStackMounts).toBe(2); expect(nav.actions).toHaveLength(actionsBefore);
+  const tree = await mount(nav.navigation);
+  const authKeys = () => tree.root.findAll(node=>node.props.name==='Login' || node.props.name==='KakaoLogin').map(node=>node.props.navigationKey);
+  expect(authKeys()).toEqual(['guest','guest']);
+  await sendCode(tree);
+  expect(authKeys()).toEqual([mode,mode]);
+  expect(mockStackMounts).toBe(1); expect(nav.actions).toHaveLength(actionsBefore);
   const registered = tree.root.findAll(node => typeof node.props.name === 'string').map(node => node.props.name);
   expect(registered[0]).toBe('Preference');
 });
@@ -131,7 +135,7 @@ test('preview -> service branch reset is not given stale old-stack completion', 
   const nav = stack(true, true); nav.push('Login'); nav.push('KakaoLogin');
   const actionsBefore = nav.actions.length;
   const tree = await mount(nav.navigation); await sendCode(tree);
-  expect(mockStackMounts).toBe(2); expect(nav.actions).toHaveLength(actionsBefore);
+  expect(mockStackMounts).toBe(1); expect(nav.actions).toHaveLength(actionsBefore);
   expect(useSessionStore.getState().user?.id).toBe('42');
 });
 
@@ -153,4 +157,15 @@ test('registered but absent root resets without duplicate or back-to-login histo
   const nav = stack(true, true, 'Login'); nav.push('KakaoLogin');
   const tree = await mount(nav.navigation); await sendCode(tree);
   expect(nav.names()).toEqual(['Map']); expect(nav.state().index).toBe(0);
+});
+
+test.each([true,false])('first login discards guest routes and opens the correct root (setup completed=%s)', completed => {
+  const nav=stack(false,completed);nav.push('KakaoLogin');
+  const destination=completed?'Map':'Preference';
+  const next=StackRouter({}).getStateForRouteNamesChange(nav.state() as any,{
+    routeNames:[...(completed?[]:['Preference']),'Map','Login','KakaoLogin'],
+    routeParamList:{},routeGetIdList:{},routeKeyChanges:['Login','KakaoLogin'],
+  });
+  expect(next.routes.map(route=>route.name)).toEqual([destination]);
+  expect(next.routes[next.index].name).toBe(destination);
 });

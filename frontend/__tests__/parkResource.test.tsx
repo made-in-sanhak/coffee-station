@@ -52,6 +52,14 @@ test('custom HTTPS base is shared by resource gating and transport', async () =>
   expect(result!.data).toEqual(['actual-service-response']);
 });
 
+test('emulator address can replace a saved USB server override', async () => {
+  await useConfigStore.getState().setBackendUrl('http://127.0.0.1:8080');
+  await useConfigStore.getState().setBackendUrl('http://10.0.2.2:8080');
+  await open();
+  expect(requests).toEqual(['http://10.0.2.2:8080/api/cafes']);
+  expect(result!.data).toEqual(['actual-service-response']);
+});
+
 test('invalid override is rejected and disabled resources do not make default requests', async () => {
   await expect(useConfigStore.getState().setBackendUrl('not-a-service-url')).rejects.toThrow();
   expect(getApiBaseUrl()).toBe('http://10.0.2.2:8080');

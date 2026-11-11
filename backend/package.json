@@ -4,6 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "dev:mvp": "node scripts/start-mvp.cjs mock",
+    "dev:mvp:db": "node scripts/start-mvp.cjs mysql-seed",
+    "smoke:mvp": "node scripts/smoke-mvp.cjs",
+    "test": "npm run build && node --test tests/*.cjs",
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit"

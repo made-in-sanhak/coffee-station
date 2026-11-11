@@ -92,13 +92,14 @@ test('price summaries use actual finite prices and leave an empty set unregister
   });
 });
 
-test('a cafe registered on the server enriches the matching SDK place instead of duplicating it', () => {
-  const sdk = { ...cafe('42'), name: '조회한 카페', distance: 150 };
+test('a confirmed place URL allows server data to enrich the same SDK place', () => {
+  const sdk = { ...cafe('42'), name: '조회한 카페', distance: 150, placeUrl:'https://place.map.kakao.com/42' };
   const server = {
     ...cafe('server-42', 2200),
     name: '조회한카페',
     distance: undefined,
     verified: true,
+    placeUrl:'https://place.map.kakao.com/42',
   };
   const result = mergeCafeSources([sdk], [server]);
   expect(result).toHaveLength(1);
@@ -108,4 +109,17 @@ test('a cafe registered on the server enriches the matching SDK place instead of
     verified: true,
   });
   expect(cafePrice(result[0], '아메리카노', 'Large', 'ICE')).toBe(2200);
+});
+
+test('same names and nearby coordinates do not prove a Kakao/internal ID mapping', () => {
+  const sdk = {...cafe('9001'), placeUrl:'https://place.map.kakao.com/9001'};
+  const server = {...cafe('9001',2000)};
+  expect(mergeCafeSources([sdk],[server])).toHaveLength(2);
+});
+
+test('DB size labels stay exact rather than treating 기본 as Regular', () => {
+  const value=cafe('1',2000);
+  value.menus![0].size='기본';
+  expect(cafePrice(value,'아메리카노','Regular','ICE')).toBeNull();
+  expect(cafePrice(value,'아메리카노','기본','ICE')).toBe(2000);
 });

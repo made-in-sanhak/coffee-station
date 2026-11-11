@@ -17,6 +17,7 @@ interface PreferenceState {
   hasHydrated: boolean;
 
   completeSetup: (preferences: UserPreferences | null) => void;
+  savePreferences: (preferences: UserPreferences) => Promise<void>;
   resetPreferences: () => void;
   setHasHydrated: (value: boolean) => void;
 }
@@ -28,7 +29,7 @@ type PersistedPreferenceState = Pick<
 
 export const usePreferenceStore = create<PreferenceState>()(
   persist(
-    set => ({
+    (set, get) => ({
       isCompleted: false,
       preferences: null,
       hasHydrated: false,
@@ -38,6 +39,17 @@ export const usePreferenceStore = create<PreferenceState>()(
           isCompleted: true,
           preferences,
         }),
+
+      savePreferences: async preferences => {
+        const { isCompleted, preferences: previous } = get();
+        try {
+          await set({ isCompleted: true, preferences });
+        } catch (error) {
+          // The persist middleware applies state before writing it to AsyncStorage.
+          await Promise.resolve(set({ isCompleted, preferences: previous })).catch(() => {});
+          throw error;
+        }
+      },
 
       resetPreferences: () =>
         set({

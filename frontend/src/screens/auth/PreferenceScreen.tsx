@@ -9,16 +9,15 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { UserPreferences } from '../../store/preferenceStore';
 
 type PreferenceScreenProps = {
   onSkip: () => void;
-  onStart: (preferences: {
-    brands: string[];
-    size: string;
-    orderMethod: string;
-    cafeType: string;
-    tastes: string[];
-  }) => void;
+  onStart: (preferences: UserPreferences) => void | Promise<void>;
+  initialPreferences?: UserPreferences | null;
+  editing?: boolean;
+  saving?: boolean;
+  saveError?: string | null;
 };
 
 const GREEN = '#205C43';
@@ -45,12 +44,16 @@ const tastes = ['산미 적은', '고소한', '달달한', '디카페인', '우�
 export default function PreferenceScreen({
   onSkip,
   onStart,
+  initialPreferences,
+  editing = false,
+  saving = false,
+  saveError,
 }: PreferenceScreenProps) {
-  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
-  const [selectedSize, setSelectedSize] = useState('');
-  const [selectedOrder, setSelectedOrder] = useState('');
-  const [selectedCafe, setSelectedCafe] = useState('');
-  const [selectedTastes, setSelectedTastes] = useState<string[]>([]);
+  const [selectedBrands, setSelectedBrands] = useState(initialPreferences?.brands ?? []);
+  const [selectedSize, setSelectedSize] = useState(initialPreferences?.size ?? '');
+  const [selectedOrder, setSelectedOrder] = useState(initialPreferences?.orderMethod ?? '');
+  const [selectedCafe, setSelectedCafe] = useState(initialPreferences?.cafeType ?? '');
+  const [selectedTastes, setSelectedTastes] = useState(initialPreferences?.tastes ?? []);
 
   const toggleItem = (
     item: string,
@@ -75,6 +78,9 @@ export default function PreferenceScreen({
   }) => (
     <Pressable
       onPress={onPress}
+      disabled={saving}
+      accessibilityRole="button"
+      accessibilityState={{ selected, disabled: saving }}
       style={[styles.chip, selected && styles.selectedChip]}
     >
       <Text style={[styles.chipText, selected && styles.selectedChipText]}>
@@ -96,24 +102,22 @@ export default function PreferenceScreen({
     </View>
   );
 
-  const handleStart = () => {
-    onStart({
-      brands: selectedBrands,
-      size: selectedSize,
-      orderMethod: selectedOrder,
-      cafeType: selectedCafe,
-      tastes: selectedTastes,
-    });
-  };
+  const handleStart = () => onStart({
+    brands: selectedBrands,
+    size: selectedSize,
+    orderMethod: selectedOrder,
+    cafeType: selectedCafe,
+    tastes: selectedTastes,
+  });
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" />
 
       <View style={styles.header}>
-        <Text style={styles.headerText}>처음 한 번만 설정해요</Text>
-        <Pressable onPress={onSkip} hitSlop={12}>
-          <Text style={styles.skipText}>건너뛰기</Text>
+        <Text style={styles.headerText}>{editing ? '커피 취향 수정' : '처음 한 번만 설정해요'}</Text>
+        <Pressable onPress={onSkip} disabled={saving} hitSlop={12} accessibilityRole="button">
+          <Text style={styles.skipText}>{editing ? '취소' : '건너뛰기'}</Text>
         </Pressable>
       </View>
 
@@ -202,8 +206,11 @@ export default function PreferenceScreen({
       </ScrollView>
 
       <View style={styles.footer}>
-        <Pressable style={styles.startButton} onPress={handleStart}>
-          <Text style={styles.startButtonText}>시작하기</Text>
+        {saveError && <Text accessibilityRole="alert" style={styles.saveError}>{saveError}</Text>}
+        <Pressable style={styles.startButton} onPress={handleStart} disabled={saving} accessibilityRole="button">
+          <Text style={styles.startButtonText}>
+            {saving ? '저장 중…' : editing ? '저장하기' : '시작하기'}
+          </Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -312,6 +319,10 @@ const styles = StyleSheet.create({
     backgroundColor: GREEN,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  saveError: {
+    color: '#9F352D',
+    marginBottom: 8,
   },
   startButtonText: {
     fontSize: 17,

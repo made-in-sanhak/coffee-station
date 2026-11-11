@@ -7,6 +7,7 @@ import { Button, Card, Chip, Empty, Field, Notice, Screen, tokens } from '../../
 import type { RootStackScreenProps } from '../../navigation/types';
 import { useSessionStore } from '../../store/sessionStore';
 import { SocialText as Text, socialStyles as s } from './SocialParts';
+import { requestCommunityLogin } from './communityLogin';
 import {
   initialMeetupDraft,
   makeMeetupInput,
@@ -31,7 +32,7 @@ export default function MeetupCreateScreen({
   const submit = async () => {
     if (saving) return;
     if (!token) {
-      navigation.navigate('Login');
+      requestCommunityLogin(navigation, { name: 'MeetupCreate', params: undefined }, setError);
       return;
     }
     setError(null);

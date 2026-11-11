@@ -63,12 +63,19 @@ const tabLabels: Record<AppTab, TabName> = {
   map: '지도', recommend: '추천', community: '휴게소', garage: '내 기록', receipt: '내 기록',
 };
 const tabRoutes: Record<TabName, string> = {
-  지도: 'Map', 추천: 'Recommend', 휴게소: 'Community', '내 기록': 'Garage',
+  지도: 'Map', 추천: 'Recommend', 휴게소: 'Community', '내 기록': 'Calendar',
 };
 export function TabBar({ navigation, active }: { navigation: Navigation; active?: AppTab }) {
   return <BottomTabBar activeTab={active ? tabLabels[active] : undefined}
-    onTabPress={label => label === '지도' && navigation.popTo
-      ? navigation.popTo('Map') : navigation.navigate(tabRoutes[label])} />;
+    onTabPress={label => {
+      if (label === '지도' && navigation.popTo) {
+        navigation.popTo('Map');
+      } else if (label === '내 기록') {
+        navigation.navigate('Calendar', undefined, { pop: true });
+      } else {
+        navigation.navigate(tabRoutes[label]);
+      }
+    }} />;
 }
 export function HeaderMain({ navigation }: { navigation: Navigation }) {
   return (
@@ -94,9 +101,9 @@ export function HeaderMain({ navigation }: { navigation: Navigation }) {
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="이벤트와 알림"
+          accessibilityLabel="알림"
           hitSlop={10}
-          onPress={() => navigation.navigate('Events')}
+          onPress={() => navigation.navigate('Notification')}
         >
           <Image
             source={require('../assets/figma/common/bell.png')}

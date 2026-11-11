@@ -170,7 +170,78 @@ test('place submission sends a search command to the existing Map instead of add
   await act(() => tree!.unmount());
 });
 
+test('the nearby list can be folded and reopened while the existing map stays mounted', async () => {
+  mockResources['/api/cafes'] = [
+    {
+      id: 'nearby-cafe',
+      name: '주변 카페',
+      latitude: 37.5,
+      longitude: 127,
+    },
+  ];
+  let tree!: Renderer.ReactTestRenderer;
+  await act(() => {
+    tree = Renderer.create(
+      <MapScreen
+        {...props<React.ComponentProps<typeof MapScreen>>(navigation())}
+      />,
+    );
+  });
+  const mapDocument = () =>
+    tree.root.findAll(node => typeof node.props.source?.html === 'string')[0];
+  const originalMap = mapDocument();
+  const toggle = () => byId(tree, 'map-sheet-toggle');
+  expect(byId(tree, 'cafe-nearby-cafe')).toBeDefined();
 
+  await act(() => toggle().props.onPress());
+  expect(toggle().props.accessibilityState.expanded).toBe(false);
+  expect(byId(tree, 'cafe-nearby-cafe')).toBeUndefined();
+  expect(mapDocument()).toBe(originalMap);
+
+  await act(() => toggle().props.onPress());
+  expect(toggle().props.accessibilityState.expanded).toBe(true);
+  expect(byId(tree, 'cafe-nearby-cafe')).toBeDefined();
+  await act(() => tree.unmount());
+});
+
+test('the searched map has one location control and can retry after permission is denied', async () => {
+  const denied = '위치 권한을 허용하지 않았습니다.';
+  const coordinate = { latitude: 37.6123, longitude: 126.8345 };
+  mockRequestLocation.mockRejectedValueOnce(new Error(denied));
+  mockRequestLocation.mockResolvedValueOnce(coordinate);
+  useExploreSession.setState({ placeName: '행신역' });
+  const nav = navigation();
+  let tree!: Renderer.ReactTestRenderer;
+  await act(() => {
+    tree = Renderer.create(
+      <MapScreen {...props<React.ComponentProps<typeof MapScreen>>(nav)} />,
+    );
+  });
+  const locationControls = tree.root.findAll(
+    node =>
+      typeof node.props.onPress === 'function' &&
+      ['내 위치로 지도 이동', '현재 위치 권한 안내'].includes(
+        node.props.accessibilityLabel,
+      ),
+  );
+  expect(locationControls).toHaveLength(1);
+
+  await act(async () => {
+    await byId(tree, 'map-location').props.onPress();
+  });
+  expect(JSON.stringify(tree.toJSON())).toContain(denied);
+  await act(async () => {
+    await byId(tree, 'map-location').props.onPress();
+  });
+  expect(useExploreSession.getState().command).toMatchObject({
+    type: 'center',
+    coordinate,
+    currentLocation: true,
+  });
+  expect(mockRequestLocation).toHaveBeenCalledTimes(2);
+  expect(nav.navigate).not.toHaveBeenCalled();
+  await act(() => tree.unmount());
+});
 
 test('location permission uses the device result to move the existing map', async () => {
   mockRequestLocation.mockResolvedValueOnce({
@@ -354,9 +425,7 @@ test('comparison sorts API cafes by their current ratings without a map cache', 
     const cafeLabels = [
       ...new Set(
         tree!.root
-          .findAll(node =>
-            node.props.accessibilityLabel?.endsWith(' 상세'),
-          )
+          .findAll(node => node.props.accessibilityLabel?.endsWith(' 상세'))
           .map(node => node.props.accessibilityLabel),
       ),
     ];

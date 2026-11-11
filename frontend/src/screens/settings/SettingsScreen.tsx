@@ -4,6 +4,7 @@ import { apiFetch } from '../../api/client';
 import { Button, Field, Notice, Screen, tokens } from '../../app/ui';
 import { KAKAO_MAP_BASE_URL } from '../../components/map/mapConfig';
 import type { RootStackScreenProps } from '../../navigation/types';
+import { useAuthStore } from '../../store/authStore';
 import { useConfigStore, normalizeBackendUrl } from '../../store/configStore';
 import {
   useKakaoSettingsStore,
@@ -21,6 +22,7 @@ export default function SettingsScreen({
   const backendUrl = useConfigStore(state => state.backendUrl);
   const configHydrated = useConfigStore(state => state.hydrated);
   const user = useSessionStore(state => state.user);
+  const hasKakaoSession = useAuthStore(state => state.accessToken !== null);
   const [draft, setDraft] = useState<KakaoSettings>({ ...settings });
   const [url, setUrl] = useState(backendUrl);
   const [waiting, setWaiting] = useState(status !== 'ready');
@@ -79,8 +81,10 @@ export default function SettingsScreen({
       return;
     confirmingLogout.current = true;
     Alert.alert(
-      '로그아웃',
-      '카카오 서비스에서 로그아웃할까요? 기기에 저장한 개인 기록은 유지됩니다.',
+      user ? '로그아웃' : '미리보기 종료',
+      user
+        ? '카카오 서비스에서 로그아웃할까요? 기기에 저장한 개인 기록은 유지됩니다.'
+        : '미리보기를 종료할까요? 기기에 저장한 개인 기록은 유지됩니다.',
       [
         {
           text: '취소',
@@ -90,7 +94,7 @@ export default function SettingsScreen({
           },
         },
         {
-          text: '로그아웃',
+          text: user ? '로그아웃' : '종료',
           onPress: async () => {
             confirmingLogout.current = false;
             if (operating.current || !mounted.current) return;
@@ -133,7 +137,7 @@ export default function SettingsScreen({
   return (
     <Screen navigation={navigation} title="카카오 설정">
       <Text style={styles.intro}>
-        지도와 개인 기록은 카카오 계정 연결 없이 이용할 수 있습니다.
+        카카오맵 표시, 서비스 서버 연결, 계정 상태를 관리합니다.
       </Text>
       <Field
         testID="settings-map-key"
@@ -204,9 +208,9 @@ export default function SettingsScreen({
         disabled={busy}
         onPress={() => navigation.goBack()}
       />
-      {user ? (
+      {user || hasKakaoSession ? (
         <Button
-          label={`${user.nickname} · 로그아웃`}
+          label={user ? `${user.nickname} · 로그아웃` : '미리보기 종료'}
           variant="outline"
           disabled={busy}
           onPress={logout}

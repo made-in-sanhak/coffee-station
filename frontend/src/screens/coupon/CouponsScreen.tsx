@@ -151,13 +151,7 @@ export default function CouponsScreen({
           </View>
         </View>
         {!user ? (
-          <>
-            <Empty message="로그인하면 발급받은 쿠폰을 확인할 수 있어요." />
-            <Button
-              label="로그인하기"
-              onPress={() => navigation.navigate('Login')}
-            />
-          </>
+          <Empty message="발급받은 쿠폰을 확인하려면 서비스 로그인이 필요해요." />
         ) : resource.loading ? (
           <Text style={s.muted}>쿠폰을 불러오고 있어요.</Text>
         ) : visible.length === 0 ? (

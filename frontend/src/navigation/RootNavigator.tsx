@@ -58,7 +58,16 @@ export default function RootNavigator() {
             onSkip={() => { completeSetup(null); navigation.replace('Map'); }}
             onStart={preferences => { completeSetup(preferences); navigation.replace('Map'); }} />}
         </Stack.Screen>}
-        <Stack.Screen name="Map" component={MapScreen} />
+        <Stack.Screen
+          name="Map"
+          component={MapScreen}
+          listeners={({ navigation }) => ({
+            focus: () => {
+              const destination = useAuthStore.getState().takeLoginReturn();
+              if (destination) navigation.navigate(destination);
+            },
+          })}
+        />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="Preferences" component={ParkPreferencesRoute} />
         <Stack.Screen name="Notification" component={NotificationScreen} />

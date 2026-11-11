@@ -10,6 +10,7 @@ import ReviewWriteScreen from '../src/screens/community/ReviewWriteScreen';
 import ReviewDetailScreen from '../src/screens/community/ReviewDetailScreen';
 import MeetupCreateScreen from '../src/screens/community/MeetupCreateScreen';
 import CommunityScreen from '../src/screens/community/CommunityScreen';
+import { env } from '../src/utils/env';
 
 const mockResources: Record<string, unknown> = {};
 jest.mock('../src/app/api', () => ({
@@ -22,13 +23,14 @@ const cafe = { id: 'cafe-1', name: '선택한 카페', address: '서울 마포�
 const photo = { uri: 'file:///selected.jpg', type: 'image/jpeg', name: 'selected.jpg', base64: '/9j/2Q==' };
 const review = { id: 'review-1', cafeId: cafe.id, cafeName: cafe.name, authorNickname: '작성자', rating: 5, text: '경험한 커피 맛', category: '리뷰', createdAt: '2026-11-04T00:00:00Z', likes: 0, liked: false, commentCount: 0, verified: false, imageUrls: ['/api/review-images/11111111-1111-4111-8111-111111111111'] };
 const clients: QueryClient[] = [];
+const initialMockMode = env.useMockApi;
 beforeEach(() => {
   jest.clearAllMocks();
   Object.keys(mockResources).forEach(key => delete mockResources[key]);
   useConfigStore.setState({ backendUrl: 'https://coffee.example' });
   useSessionStore.setState({ accessToken: 'session', user: null });
 });
-afterEach(() => { clients.forEach(client => client.clear()); clients.length = 0; });
+afterEach(() => { clients.forEach(client => client.clear()); clients.length = 0; env.useMockApi = initialMockMode; });
 function button(tree: Renderer.ReactTestRenderer, label: string) {
   return tree.root.findAll(node => node.props.accessibilityLabel === label && typeof node.props.onPress === 'function')[0];
 }
@@ -112,5 +114,30 @@ test('nearby meetup filtering requests location only on demand and passes a real
   expect(useResource).toHaveBeenCalledWith('/api/meetups', expect.objectContaining({ latitude: 37.55, longitude: 126.92, radius: 1000 }), true);
   await act(async () => button(tree, '내 주변 1km').props.onPress());
   expect(useResource).toHaveBeenLastCalledWith('/api/meetups', expect.objectContaining({ radius: undefined }), true);
+  await act(() => tree.unmount());
+});
+
+test('preview review and meetup actions explain the service boundary without reopening login', async () => {
+  env.useMockApi = true;
+  useSessionStore.setState({ accessToken: null, user: null });
+  for (const [tab, label] of [['reviews', '커피 리뷰 쓰기'], ['meetups', '모임 만들기']]) {
+    const { tree, navigation } = await mount(CommunityScreen, { tab });
+    await act(() => button(tree, label).props.onPress());
+    expect(navigation.navigate).not.toHaveBeenCalled();
+    expect(api.post).not.toHaveBeenCalled();
+    expect(JSON.stringify(tree.toJSON())).toContain('미리보기');
+    await act(() => tree.unmount());
+  }
+});
+
+test('service login retains the requested meetup composer destination', async () => {
+  env.useMockApi = false;
+  useSessionStore.setState({ accessToken: null, user: null });
+  const { tree, navigation } = await mount(CommunityScreen, { tab: 'meetups' });
+  await act(() => button(tree, '모임 만들기').props.onPress());
+  expect(navigation.navigate).toHaveBeenCalledWith('Login', {
+    returnTo: { name: 'MeetupCreate', params: undefined },
+  });
+  expect(api.post).not.toHaveBeenCalled();
   await act(() => tree.unmount());
 });

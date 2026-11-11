@@ -25,6 +25,7 @@ const MUTED = '#928980';
 
 export default function LoginScreen({
   navigation,
+  route,
 }: RootStackScreenProps<'Login'>) {
   const handleKakaoLogin = () => {
     if (!env.kakaoRestApiKey) {
@@ -35,7 +36,9 @@ export default function LoginScreen({
       return;
     }
 
-    navigation.navigate('KakaoLogin');
+    const returnTo = route.params?.returnTo;
+    if (returnTo) navigation.navigate('KakaoLogin', { returnTo });
+    else navigation.navigate('KakaoLogin');
   };
 
   return (
@@ -97,9 +100,16 @@ export default function LoginScreen({
           </Text>
         </Pressable>
 
-        <Text style={styles.ownerLogin}>
-          점주이신가요? 점주 계정으로 로그인
-        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="점주 계정으로 로그인"
+          onPress={() => Alert.alert(
+            '점주 계정 로그인',
+            '점주 계정 로그인은 현재 연결되어 있지 않아요. 이용하려면 서비스에서 점주 권한을 확인해야 해요.',
+          )}
+        >
+          <Text style={styles.ownerLogin}>점주이신가요? 점주 계정으로 로그인</Text>
+        </Pressable>
 
         <Text style={styles.legalNotice}>
           시작하면 서비스 이용약관, 개인정보 처리방침,

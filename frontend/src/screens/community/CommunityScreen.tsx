@@ -33,6 +33,7 @@ import {
 } from './SocialParts';
 import { readableError, relativeTime } from './socialModel';
 import ReviewPhotos from './ReviewPhotos';
+import { requestCommunityLogin } from './communityLogin';
 
 export default function CommunityScreen({
   navigation,
@@ -90,7 +91,7 @@ export default function CommunityScreen({
 
   const like = async (review: Review) => {
     if (!token) {
-      navigation.navigate('Login');
+      requestCommunityLogin(navigation, { name: 'ReviewDetail', params: { reviewId: review.id } }, setError);
       return;
     }
     if (busy) return;
@@ -113,7 +114,7 @@ export default function CommunityScreen({
       return;
     }
     if (!token) {
-      navigation.navigate('Login');
+      requestCommunityLogin(navigation, { name: 'MeetupDetail', params: { meetupId: meetup.id } }, setError);
       return;
     }
     if (busy) return;
@@ -131,9 +132,11 @@ export default function CommunityScreen({
     }
   };
   const write = () => {
-    if (!token) navigation.navigate('Login');
-    else if (tab === 'reviews') navigation.navigate('ReviewWrite', cafeId ? { cafeId } : undefined);
-    else navigation.navigate('MeetupCreate');
+    const destination = tab === 'reviews'
+      ? { name: 'ReviewWrite' as const, params: cafeId ? { cafeId } : undefined }
+      : { name: 'MeetupCreate' as const, params: undefined };
+    if (!token) requestCommunityLogin(navigation, destination, setError);
+    else navigation.navigate(destination);
   };
   const toggleNearby = async () => {
     if (locating) return;
@@ -233,6 +236,7 @@ export default function CommunityScreen({
             />
           ))}
         </ScrollView>
+        {error && <Notice>{error}</Notice>}
         <ScrollView
           style={styles.list}
           contentContainerStyle={styles.listContent}
@@ -255,7 +259,6 @@ export default function CommunityScreen({
               <SocialIcon name="chevron" />
             </Pressable>
           )}
-          {error && <Notice>{error}</Notice>}
           {resource.loading && (
             <View style={styles.loading}>
               <ActivityIndicator color={tokens.green} />

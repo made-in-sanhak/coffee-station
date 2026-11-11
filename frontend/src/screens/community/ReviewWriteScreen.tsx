@@ -23,6 +23,7 @@ import {
 import { makeReviewInput, readableError } from './socialModel';
 import { native, type PickedImage } from '../../app/native';
 import { MAX_REVIEW_IMAGES, reviewPhotoInput } from './reviewImages';
+import { requestCommunityLogin } from './communityLogin';
 
 export default function ReviewWriteScreen({
   navigation,
@@ -67,7 +68,7 @@ export default function ReviewWriteScreen({
   const submit = async () => {
     if (saving) return;
     if (!token) {
-      navigation.navigate('Login');
+      requestCommunityLogin(navigation, { name: 'ReviewWrite', params: route.params }, setError);
       return;
     }
     setError(null);

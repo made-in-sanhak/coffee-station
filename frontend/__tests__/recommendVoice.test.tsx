@@ -2,6 +2,8 @@ import React from 'react';
 import Renderer, { act } from 'react-test-renderer';
 import RecommendScreen from '../src/screens/recommend/RecommendScreen';
 import { native } from '../src/app/native';
+import { DEFAULT_PREFERENCES } from '../src/app/domain';
+import { usePersonalStore } from '../src/store/personalStore';
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: require('react-native').View,
 }));
@@ -44,6 +46,10 @@ const render = async () => {
 beforeEach(() => {
   trees = [];
   jest.clearAllMocks();
+  usePersonalStore.setState({
+    onboarded: false,
+    preferences: DEFAULT_PREFERENCES,
+  });
 });
 afterEach(async () => {
   await act(() => {
@@ -62,6 +68,48 @@ test('recognized speech becomes the editable recommendation request', async () =
   expect(native.recognizeSpeech).toHaveBeenCalledTimes(1);
   expect(input().props.value).toBe('조용한 카페를 찾아줘');
   expect(navigation.navigate).not.toHaveBeenCalled();
+});
+
+test('a new recommendation submits only explicitly chosen purposes and tastes', async () => {
+  usePersonalStore.setState({
+    onboarded: true,
+    preferences: {
+      ...DEFAULT_PREFERENCES,
+      purposes: ['매장 이용'],
+      tastes: ['산미 적은'],
+    },
+  });
+  jest.mocked(native.getLocation).mockResolvedValue({
+    latitude: 37.5,
+    longitude: 127,
+  });
+  const { tree, navigation } = await render();
+  const action = (label: string) =>
+    tree.root.findAll(
+      node =>
+        node.props.label === label && typeof node.props.onPress === 'function',
+    )[0].props.onPress;
+
+  await act(async () => {
+    await action('AI 추천 받기')();
+  });
+  expect(navigation.navigate).toHaveBeenLastCalledWith('RecommendationResult', {
+    request: expect.objectContaining({ purposes: [], tastes: [] }),
+  });
+
+  await act(() => {
+    action('테이크아웃')();
+    action('고소한')();
+  });
+  await act(async () => {
+    await action('AI 추천 받기')();
+  });
+  expect(navigation.navigate).toHaveBeenLastCalledWith('RecommendationResult', {
+    request: expect.objectContaining({
+      purposes: ['테이크아웃'],
+      tastes: ['고소한'],
+    }),
+  });
 });
 
 test('repeated microphone presses start one recognizer and limit input to 200 characters', async () => {

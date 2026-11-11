@@ -31,6 +31,7 @@ jest.mock('../src/app/native', () => ({
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: require('react-native').View,
 }));
+jest.mock('../src/utils/env', () => ({ env: { useMockApi: false } }));
 
 const review = {
   id: 'review-1',
@@ -78,7 +79,9 @@ test('anonymous readers can view the feed but liking asks for login without writ
   await act(async () =>
     button(tree!, '작성자님의 글 좋아요 3개').props.onPress(),
   );
-  expect(navigate).toHaveBeenCalledWith('Login');
+  expect(navigate).toHaveBeenCalledWith('Login', {
+    returnTo: { name: 'ReviewDetail', params: { reviewId: 'review-1' } },
+  });
   expect(api.post).not.toHaveBeenCalled();
   await act(() => tree!.unmount());
 });

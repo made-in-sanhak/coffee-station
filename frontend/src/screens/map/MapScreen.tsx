@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Modal,
+  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -60,6 +62,18 @@ export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
   const [locating, setLocating] = useState(false);
   const [listening, setListening] = useState(false);
   const [chooser, setChooser] = useState<'menu' | 'sort' | null>(null);
+  const [sheetExpanded, setSheetExpanded] = useState(true);
+  const sheetDrag = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponderCapture: (_, { dx, dy }) =>
+          Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(dx),
+        onPanResponderRelease: (_, { dy }) => {
+          if (Math.abs(dy) >= 24) setSheetExpanded(dy < 0);
+        },
+      }),
+    [],
+  );
   const response = useResource<Cafe[]>('/api/cafes', {
     ...center,
     radius: 1000,
@@ -205,9 +219,9 @@ export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="카페 소식과 이벤트"
+            accessibilityLabel="알림"
             hitSlop={10}
-            onPress={() => navigation.navigate('Events')}
+            onPress={() => navigation.navigate('Notification')}
           >
             <ExploreIcon name="bell" />
           </Pressable>
@@ -283,141 +297,154 @@ export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
             />
           </ScrollView>
         </View>
-        <Pressable
-          testID="map-location"
-          accessibilityRole="button"
-          accessibilityLabel="현재 위치 권한 안내"
-          onPress={() => navigation.navigate('LocationPermission')}
-          style={styles.locate}
-        >
-          <ExploreIcon name="locate" />
-        </Pressable>
-        {placeName ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="내 위치로 지도 이동"
-            disabled={locating}
-            onPress={() => {
-              return locate();
-            }}
-            style={styles.returnLocation}
-          >
-            <ExploreIcon name="returnLocation" />
-            <Text style={styles.returnText}>
-              {locating ? '확인 중' : '내 위치로'}
-            </Text>
-          </Pressable>
-        ) : null}
-        {message ? (
-          <Pressable
-            accessibilityRole="alert"
-            onPress={() => setMessage(null)}
-            style={styles.message}
-          >
-            <Text style={styles.messageText}>{message}</Text>
-          </Pressable>
-        ) : null}
-        <View style={styles.bottomSheet}>
-          <View style={styles.handle} />
-          <View style={styles.sheetHeading}>
+        <View pointerEvents="box-none" style={styles.sheetDock}>
+          <View pointerEvents="box-none" style={styles.sheetControls}>
+            {message ? (
+              <Pressable
+                accessibilityRole="alert"
+                onPress={() => setMessage(null)}
+                style={styles.message}
+              >
+                <Text style={styles.messageText}>{message}</Text>
+              </Pressable>
+            ) : null}
             <Pressable
-              testID="map-compare"
+              testID="map-location"
               accessibilityRole="button"
-              accessibilityLabel="주변 메뉴 가격 비교"
-              onPress={() => navigation.navigate('Compare', { menu })}
-              style={styles.headingMain}
+              accessibilityLabel="내 위치로 지도 이동"
+              accessibilityState={{ busy: locating, disabled: locating }}
+              disabled={locating}
+              onPress={locate}
+              style={styles.locate}
             >
-              <Text numberOfLines={1} style={styles.sheetTitle}>
-                {placeName
-                  ? `${placeName} 주변 카페 ${visible.length}곳`
-                  : `주변 카페 ${visible.length}곳`}
-              </Text>
-              <Text numberOfLines={1} style={styles.sheetSubtitle}>
-                · 내 메뉴({displayMenu}) 기준
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="카페 정렬 방식 선택"
-              onPress={() => setChooser('sort')}
-              style={styles.sort}
-            >
-              <Text style={styles.sortText}>{sortLabel}</Text>
-              <ExploreIcon name="chevronDown" />
+              {locating ? (
+                <ActivityIndicator size="small" color={tokens.green} />
+              ) : (
+                <ExploreIcon name="locate" />
+              )}
             </Pressable>
           </View>
-          <ScrollView
-            style={styles.cafeList}
-            contentContainerStyle={styles.listContent}
-            nestedScrollEnabled
-          >
-            {rows.map(cafe => (
+          <View style={styles.bottomSheet}>
+            <View style={styles.handleTarget} {...sheetDrag.panHandlers}>
               <Pressable
-                key={cafe.id}
-                testID={`cafe-${cafe.id}`}
+                testID="map-sheet-toggle"
                 accessibilityRole="button"
-                accessibilityLabel={`${cafe.name} 상세 보기`}
-                onPress={() => openCafe(cafe)}
-                style={styles.cafeRow}
+                accessibilityLabel={
+                  sheetExpanded
+                    ? '주변 카페 목록 접기'
+                    : '주변 카페 목록 펼치기'
+                }
+                accessibilityState={{ expanded: sheetExpanded }}
+                onPress={() => setSheetExpanded(expanded => !expanded)}
+                style={styles.handleButton}
               >
-                <View style={styles.cafePhoto}>
-                  <ExploreIcon name="coffeeRow" />
-                </View>
-                <View style={styles.cafeInfo}>
-                  <Text numberOfLines={1} style={styles.cafeName}>
-                    {cafe.name}
-                  </Text>
-                  <Text numberOfLines={1} style={styles.cafeMeta}>
-                    {distanceLabel(cafe.distance)}
-                    {cafe.tags?.includes('영업 중') ? ' · 영업 중' : ''}
-                    {cafe.rating == null ? '' : ` · ★${cafe.rating.toFixed(1)}`}
-                    {cafe.tags?.includes('드라이브스루')
-                      ? ' · 드라이브스루'
-                      : ''}
-                  </Text>
-                </View>
-                <View style={styles.cafePrice}>
-                  <Text
-                    style={
-                      cafePrice(cafe, menu, size, temperature) == null
-                        ? styles.unknownPrice
-                        : styles.price
-                    }
-                  >
-                    {formatMoney(cafePrice(cafe, menu, size, temperature))}
-                  </Text>
-                  {cafe.tags?.includes('드라이브스루') ? (
-                    <View style={styles.badge}>
-                      <Text style={styles.badgeText}>DT</Text>
-                    </View>
-                  ) : cafe.verified ? (
-                    <View style={styles.badge}>
-                      <Text style={styles.badgeText}>점주 확인</Text>
-                    </View>
-                  ) : null}
-                </View>
+                <View style={styles.handle} />
               </Pressable>
-            ))}
-            {!rows.length ? (
-              <View style={styles.empty}>
-                <Text style={styles.emptyText}>
-                  {response.loading
-                    ? '주변 카페를 찾고 있습니다.'
-                    : !hasMapKey
-                    ? '설정에서 지도 JavaScript 키를 입력해 주세요.'
-                    : driveThrough || openOnly || priceLimit
-                    ? '선택한 조건이 확인된 카페가 없습니다.'
-                    : '주변 카페가 조회되면 여기에 표시됩니다.'}
+            </View>
+            <View style={styles.sheetHeading}>
+              <Pressable
+                testID="map-compare"
+                accessibilityRole="button"
+                accessibilityLabel="주변 메뉴 가격 비교"
+                onPress={() => navigation.navigate('Compare', { menu })}
+                style={styles.headingMain}
+              >
+                <Text numberOfLines={1} style={styles.sheetTitle}>
+                  {placeName
+                    ? `${placeName} 주변 카페 ${visible.length}곳`
+                    : `주변 카페 ${visible.length}곳`}
                 </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => navigation.navigate('Compare', { menu })}
-                >
-                  <Text style={styles.emptyAction}>메뉴 가격 비교하기</Text>
-                </Pressable>
-              </View>
+                <Text numberOfLines={1} style={styles.sheetSubtitle}>
+                  · 내 메뉴({displayMenu}) 기준
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="카페 정렬 방식 선택"
+                onPress={() => setChooser('sort')}
+                style={styles.sort}
+              >
+                <Text style={styles.sortText}>{sortLabel}</Text>
+                <ExploreIcon name="chevronDown" />
+              </Pressable>
+            </View>
+            {sheetExpanded ? (
+              <ScrollView
+                style={styles.cafeList}
+                contentContainerStyle={styles.listContent}
+                nestedScrollEnabled
+              >
+                {rows.map(cafe => (
+                  <Pressable
+                    key={cafe.id}
+                    testID={`cafe-${cafe.id}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${cafe.name} 상세 보기`}
+                    onPress={() => openCafe(cafe)}
+                    style={styles.cafeRow}
+                  >
+                    <View style={styles.cafePhoto}>
+                      <ExploreIcon name="coffeeRow" />
+                    </View>
+                    <View style={styles.cafeInfo}>
+                      <Text numberOfLines={1} style={styles.cafeName}>
+                        {cafe.name}
+                      </Text>
+                      <Text numberOfLines={1} style={styles.cafeMeta}>
+                        {distanceLabel(cafe.distance)}
+                        {cafe.tags?.includes('영업 중') ? ' · 영업 중' : ''}
+                        {cafe.rating == null
+                          ? ''
+                          : ` · ★${cafe.rating.toFixed(1)}`}
+                        {cafe.tags?.includes('드라이브스루')
+                          ? ' · 드라이브스루'
+                          : ''}
+                      </Text>
+                    </View>
+                    <View style={styles.cafePrice}>
+                      <Text
+                        style={
+                          cafePrice(cafe, menu, size, temperature) == null
+                            ? styles.unknownPrice
+                            : styles.price
+                        }
+                      >
+                        {formatMoney(cafePrice(cafe, menu, size, temperature))}
+                      </Text>
+                      {cafe.tags?.includes('드라이브스루') ? (
+                        <View style={styles.badge}>
+                          <Text style={styles.badgeText}>DT</Text>
+                        </View>
+                      ) : cafe.verified ? (
+                        <View style={styles.badge}>
+                          <Text style={styles.badgeText}>점주 확인</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </Pressable>
+                ))}
+                {!rows.length ? (
+                  <View style={styles.empty}>
+                    <Text style={styles.emptyText}>
+                      {response.loading
+                        ? '주변 카페를 찾고 있습니다.'
+                        : !hasMapKey
+                        ? '설정에서 지도 JavaScript 키를 입력해 주세요.'
+                        : driveThrough || openOnly || priceLimit
+                        ? '선택한 조건이 확인된 카페가 없습니다.'
+                        : '주변 카페가 조회되면 여기에 표시됩니다.'}
+                    </Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => navigation.navigate('Compare', { menu })}
+                    >
+                      <Text style={styles.emptyAction}>메뉴 가격 비교하기</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+              </ScrollView>
             ) : null}
-          </ScrollView>
+          </View>
         </View>
       </View>
       <Modal
@@ -531,10 +558,22 @@ const styles = StyleSheet.create({
   },
   searchValue: { color: tokens.text },
   filters: { flexDirection: 'row', gap: 8, paddingHorizontal: 20 },
-  locate: {
+  sheetDock: {
     position: 'absolute',
-    right: 20,
-    bottom: 268,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    maxHeight: '58%',
+  },
+  sheetControls: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginHorizontal: 20,
+    marginBottom: 8,
+  },
+  locate: {
     height: 44,
     width: 44,
     borderRadius: 22,
@@ -547,33 +586,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 12,
   },
-  returnLocation: {
-    position: 'absolute',
-    left: 20,
-    bottom: 274,
-    flexDirection: 'row',
-    gap: 6,
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#EAE3D9',
-    elevation: 3,
-  },
-  returnText: {
-    fontFamily: tokens.font,
-    color: tokens.green,
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '700',
-  },
   message: {
-    position: 'absolute',
-    top: 112,
-    left: 20,
-    right: 20,
+    flex: 1,
     backgroundColor: '#FFFFFF',
     padding: 12,
     borderRadius: 12,
@@ -586,16 +600,10 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   bottomSheet: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    minHeight: 202,
-    maxHeight: '45%',
-    paddingTop: 10,
-    paddingBottom: 20,
+    flexShrink: 1,
+    paddingBottom: 14,
     paddingHorizontal: 20,
-    gap: 14,
+    gap: 8,
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -605,8 +613,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 12,
   },
+  handleTarget: { alignSelf: 'center', width: 88 },
+  handleButton: {
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   handle: {
-    alignSelf: 'center',
     width: 40,
     height: 4,
     borderRadius: 2,
@@ -643,7 +656,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: tokens.muted,
   },
-  cafeList: { height: 118, maxHeight: 118, flexGrow: 0 },
+  cafeList: { maxHeight: 232, flexGrow: 0, flexShrink: 1 },
   listContent: { gap: 14 },
   cafeRow: {
     flexDirection: 'row',

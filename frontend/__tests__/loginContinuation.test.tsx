@@ -55,15 +55,16 @@ function stack(authenticated: boolean, complete: boolean, rootOverride?: string)
     reset: (next: object) => dispatch(CommonActions.reset(next as any)),
     goBack: () => dispatch(CommonActions.goBack()),
     navigate: (name: string) => dispatch(CommonActions.navigate(name)),
+    isFocused: () => state.routes[state.index].name === 'KakaoLogin',
   };
   return { navigation, push: (name: string) => dispatch(StackActions.push(name)),
     state: () => state as StateShape, names: () => state.routes.map(route => route.name), actions };
 }
-async function mount(navigation: ReturnType<typeof stack>['navigation']) {
+async function mount(navigation: ReturnType<typeof stack>['navigation'], params?: object) {
   let tree!: Renderer.ReactTestRenderer;
   await act(async () => { tree = Renderer.create(<QueryClientProvider client={queryClient}>
     <RootNavigator />
-    <KakaoLoginScreen {...({ navigation, route: { name: 'KakaoLogin', key: 'fixture-auth' } } as any)} />
+    <KakaoLoginScreen {...({ navigation, route: { name: 'KakaoLogin', key: 'fixture-auth', params } } as any)} />
   </QueryClientProvider>); });
   trees.push(tree); return tree;
 }
@@ -153,4 +154,43 @@ test('registered but absent root resets without duplicate or back-to-login histo
   const nav = stack(true, true, 'Login'); nav.push('KakaoLogin');
   const tree = await mount(nav.navigation); await sendCode(tree);
   expect(nav.names()).toEqual(['Map']); expect(nav.state().index).toBe(0);
+});
+
+test('real login resumes the requested community destination once after the navigator changes branch', async () => {
+  useAuthStore.getState().setSession(preview);
+  env.useMockApi = false;
+  serviceTransport();
+  const nav = stack(true, true);
+  nav.push('Login');
+  nav.push('KakaoLogin');
+  const target = { name: 'ReviewWrite', params: { cafeId: 'cafe-42' } };
+  const tree = await mount(nav.navigation, { returnTo: target });
+  await sendCode(tree);
+  expect(mockStackMounts).toBe(2);
+  const map = tree.root.findAll(node => node.props.name === 'Map')[0];
+  const navigate = jest.fn();
+  await act(() => {
+    const listeners = map.props.listeners?.({ navigation: { navigate } });
+    listeners?.focus();
+    listeners?.focus();
+  });
+  expect(navigate).toHaveBeenCalledTimes(1);
+  expect(navigate).toHaveBeenCalledWith(target);
+  const request = jest.mocked(globalThis.fetch).mock.calls[0][1];
+  expect(JSON.parse(String(request?.body))).toEqual({
+    code: 'fixture-code', redirectUri: env.kakaoRedirectUri,
+  });
+});
+
+test('a malformed callback reports login failure without throwing out of the WebView handler', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  const nav = stack(false, false);
+  nav.push('KakaoLogin');
+  const tree = await mount(nav.navigation);
+  const web = tree.root.findAll(node => typeof node.props.source?.uri === 'string')[0];
+  expect(() => web.props.onShouldStartLoadWithRequest({
+    url: `${env.kakaoRedirectUri}?code=%`,
+  })).not.toThrow();
+  expect(alert).toHaveBeenCalledWith('로그인 실패', expect.any(String));
+  expect(nav.names()).toEqual(['Login']);
 });

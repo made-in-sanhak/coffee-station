@@ -12,8 +12,12 @@ import { createKakaoLoginContinuation } from '../../integration/kakaoLoginContin
 // 인가 코드를 서버에 넘깁니다. (Redirect URI 페이지 자체는 열지 않습니다)
 export default function KakaoLoginScreen({
   navigation,
+  route,
 }: RootStackScreenProps<'KakaoLogin'>) {
-  const { mutate: login, isPending } = useKakaoLogin();
+  const { mutate: login, isPending } = useKakaoLogin(() => {
+    const returnTo = route.params?.returnTo;
+    return returnTo && navigation.isFocused() ? returnTo : undefined;
+  });
   const handled = useRef(false);
 
   const fail = (message: string) => {
@@ -22,7 +26,16 @@ export default function KakaoLoginScreen({
   };
 
   const handleUrl = (url: string): boolean => {
-    const result = parseKakaoRedirect(url);
+    let result: ReturnType<typeof parseKakaoRedirect>;
+    try {
+      result = parseKakaoRedirect(url);
+    } catch {
+      if (!handled.current) {
+        handled.current = true;
+        fail('카카오 로그인 응답을 확인하지 못했어요. 다시 시도해 주세요.');
+      }
+      return false;
+    }
     if (!result) {
       // 카카오톡 앱 실행(intent://) 같은 주소는 WebView 가 열 수 없어서 막습니다.
       return /^https?:\/\//.test(url);

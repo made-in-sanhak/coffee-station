@@ -40,7 +40,9 @@ test('all four tabs keep working destinations and Map returns to the existing st
   const { tree, nav } = await renderBar('community');
   await act(() => { for (const label of ['지도','추천','휴게소','내 기록']) press(tree,label); });
   expect(nav.popTo.mock.calls).toEqual([['Map']]);
-  expect(nav.navigate.mock.calls).toEqual([['Recommend'],['Community'],['Garage']]);
+  expect(nav.navigate.mock.calls).toEqual([
+    ['Recommend'], ['Community'], ['Calendar', undefined, { pop: true }],
+  ]);
 });
 
 test('selected group labels on detail screens still return to their root destination', async () => {
@@ -49,7 +51,7 @@ test('selected group labels on detail screens still return to their root destina
   expect(map.nav.popTo).toHaveBeenCalledWith('Map');
   const garage = await renderBar('garage');
   await act(() => press(garage.tree,'내 기록'));
-  expect(garage.nav.navigate).toHaveBeenCalledWith('Garage');
+  expect(garage.nav.navigate).toHaveBeenCalledWith('Calendar', undefined, { pop: true });
 });
 
 test('Map falls back to navigate when popTo is unavailable and receipt selects 내 기록', async () => {

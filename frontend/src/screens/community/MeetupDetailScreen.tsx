@@ -29,6 +29,7 @@ import {
 } from './SocialParts';
 import { readableError, relativeTime } from './socialModel';
 import { useSavedMeetup } from './useSavedMeetup';
+import { requestCommunityLogin } from './communityLogin';
 
 type HostedMeetup = Meetup & { hostId?: string };
 
@@ -77,7 +78,7 @@ export default function MeetupDetailScreen({
 
   const join = async () => {
     if (!token) {
-      navigation.navigate('Login');
+      requestCommunityLogin(navigation, { name: 'MeetupDetail', params: route.params }, setError);
       return;
     }
     if (!meetup || busy) return;

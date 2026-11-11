@@ -22,8 +22,8 @@ export default function RecommendScreen({
   const onboarded = usePersonalStore(state => state.onboarded);
   const [request, setRequest] = useState<RecommendationRequest>(() => ({
     budget: onboarded ? preferences.priceMax : 5000,
-    purposes: onboarded ? preferences.purposes : ['공부·작업'],
-    tastes: onboarded ? preferences.tastes : ['산미 적은'],
+    purposes: [],
+    tastes: [],
     travelMinutes: preferences.travelMinutes,
     travelMode: preferences.travelMode,
     query: '',

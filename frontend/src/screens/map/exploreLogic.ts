@@ -3,7 +3,7 @@ import type { Cafe } from '../../app/domain';
 export type CafeSort = 'price' | 'distance' | 'rating';
 export interface CafeFilters {
   menu: string;
-  size: string;
+  size: string | null;
   temperature: string;
   driveThrough?: boolean;
   openOnly?: boolean;
@@ -16,9 +16,6 @@ const canonicalMenu = (value: string) =>
     .replace(/^(아이스|ICE)\s*/i, '')
     .replace(/\s/g, '')
     .toLowerCase();
-const canonicalSize = (value: string) =>
-  value === '기본' ? 'regular' : value.toLowerCase();
-
 export function mergeCafeSources(
   sdkCafes: Cafe[],
   serverCafes: Cafe[],
@@ -43,24 +40,27 @@ export function mergeCafeSources(
   return [...merged.values()];
 }
 
-export function cafePrice(
+export function cheapestMenu(
   cafe: Cafe,
   menu: string,
-  size: string,
+  size: string | null,
   temperature: string,
-): number | null {
-  const prices = (cafe.menus ?? [])
+) {
+  return (cafe.menus ?? [])
     .filter(
       item =>
         item.available !== false &&
         canonicalMenu(item.name) === canonicalMenu(menu) &&
-        canonicalSize(item.size) === canonicalSize(size) &&
+        (size === null || item.size === size) &&
         item.temperature === temperature &&
         Number.isFinite(item.price) &&
         item.price >= 0,
     )
-    .map(item => item.price);
-  return prices.length ? Math.min(...prices) : null;
+    .sort((a,b) => a.price-b.price || a.id.localeCompare(b.id))[0] ?? null;
+}
+
+export function cafePrice(cafe: Cafe, menu: string, size: string | null, temperature: string): number | null {
+  return cheapestMenu(cafe,menu,size,temperature)?.price ?? null;
 }
 
 export function filterCafes(cafes: Cafe[], filters: CafeFilters): Cafe[] {

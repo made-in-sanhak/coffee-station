@@ -14,7 +14,7 @@ export class SeedMidtermRepository implements MidtermRepository {
     const params: (string | number)[] = [];
     if (c.menu_code) {clauses.push('m.standard_name = ?'); params.push(c.menu_code === 'AMERICANO' ? '아메리카노' : '카페라떼');}
     if (c.temperature) {clauses.push('p.option_name = ?'); params.push(c.temperature);}
-    if (c.size) {clauses.push('p.size = ?'); params.push(c.size);}
+    if (c.size) {clauses.push('BINARY p.size = BINARY ?'); params.push(c.size);}
     if (c.max_price_krw !== null) {clauses.push('p.price <= ?'); params.push(c.max_price_krw);}
     // Bounded candidates, with stable lexical offer-ID order matching the service.
     params.push(c.limit);

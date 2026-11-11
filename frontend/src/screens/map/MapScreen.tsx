@@ -23,6 +23,7 @@ import { usePersonalStore } from '../../store/personalStore';
 import { useKakaoSettingsStore } from '../../store/kakaoSettingsStore';
 import {
   cafePrice,
+  cheapestMenu,
   distanceLabel,
   filterCafes,
   mergeCafeSources,
@@ -46,7 +47,7 @@ export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
     state => !!state.settings.kakaoMapJsKey,
   );
   const [menu, setMenu] = useState(preferences.menus[0] ?? '아이스 아메리카노');
-  const size = preferences.sizes[0] === 'Large' ? 'Large' : 'Regular';
+  const [size, setSize] = useState<string | null>(null);
   const temperature = preferences.temperatures[0] ?? 'ICE';
   const [driveThrough, setDriveThrough] = useState(false);
   const [openOnly, setOpenOnly] = useState(false);
@@ -64,7 +65,7 @@ export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
     ...center,
     radius: 1000,
     menu,
-    size,
+    size: size ?? undefined,
     temperature,
     sort,
   });
@@ -351,7 +352,14 @@ export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
             contentContainerStyle={styles.listContent}
             nestedScrollEnabled
           >
-            {rows.map(cafe => (
+            <ScrollView horizontal>
+              <Chip label="전체 사이즈" selected={size === null} onPress={() => setSize(null)} />
+              {[...new Set(cafes.flatMap(c => (c.menus ?? []).map(m => m.size)))].map(value =>
+                <Chip key={value} label={value} selected={size === value} onPress={() => setSize(value)} />)}
+            </ScrollView>
+            {rows.map(cafe => {
+              const option = cheapestMenu(cafe,menu,size,temperature);
+              return (
               <Pressable
                 key={cafe.id}
                 testID={`cafe-${cafe.id}`}
@@ -386,6 +394,9 @@ export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
                   >
                     {formatMoney(cafePrice(cafe, menu, size, temperature))}
                   </Text>
+                  {option && <Text style={styles.cafeMeta}>{option.name} · {option.temperature} · {option.size}</Text>}
+                  {option?.isDemo && <Text style={styles.cafeMeta}>시연 가격 · 확인일 미확인</Text>}
+                  {option?.priceScope === 'BRAND' && <Text style={styles.cafeMeta}>브랜드 기준 가격</Text>}
                   {cafe.tags?.includes('드라이브스루') ? (
                     <View style={styles.badge}>
                       <Text style={styles.badgeText}>DT</Text>
@@ -397,7 +408,7 @@ export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
                   ) : null}
                 </View>
               </Pressable>
-            ))}
+            );})}
             {!rows.length ? (
               <View style={styles.empty}>
                 <Text style={styles.emptyText}>

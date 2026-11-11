@@ -13,10 +13,10 @@ GET /api/cafes?latitude=37.62&longitude=126.83&radius=1000&menu=아메리카노&
 - 좌표는 실제 지도 중심을 사용한다. 예시 좌표가 매장 위치를 보장하지 않는다.
 - radius: 미터, 1~5000. sort: price/distance. rating 정렬은 현재 미지원(422).
 - 메뉴: 아메리카노/카페라떼, 아이스 접두어 허용(ICE 조건과 일치해야 함).
-- size: DB 원문과 정확히 일치. 기본/Regular/Large 등의 별칭을 임의 통합하지 않았다. 프런트 기본 Regular와 실제 적재값을 대조한다. 빈 결과면 옵션 일치를 먼저 확인한다.
+- size: 생략하면 전체 사이즈. 지도 첫 화면은 전체이며 응답 옵션으로 선택한다. 특정 값은 DB 원문과 정확히 일치해야 한다. 기본/Regular/Tall 등은 임의로 통합하지 않는다. 카드에 최저가를 만든 실제 메뉴·온도·사이즈를 표시한다.
 - 결과: 공통 success/data/message, data는 Cafe 배열. 문자열 id, name/address, latitude/longitude, distance(직선 미터), minPrice, verified=false, tags, menus 제공.
 - menus.id는 price_id(가격 옵션 ID), cafeId는 cafe_id. menus는 요청 조건에 맞는 옵션만 포함한다. 전체 메뉴나 menu_id와 혼동하지 않는다.
-- 가격은 DEMO 출처이며 브랜드 가격이 포함될 수 있다. checkedAt은 제공하지 않는다. seed 입력일을 가격 확인일로 해석하지 않는다. 리뷰·영업시간·카카오 placeUrl은 만들지 않는다.
+- 가격은 DEMO 출처이며 브랜드 가격이 포함될 수 있다. checkedAt=null, isDemo=true, priceScope=STORE/BRAND를 제공한다. 카드에는 시연 가격·확인일 미확인과 브랜드 기준 가격을 표시한다. seed 입력일을 가격 확인일로 해석하지 않는다. 리뷰·영업시간·카카오 placeUrl은 만들지 않는다.
 - 정상 빈 결과: 200 data=[]. 입력 오류:422. 연결/쿼리 오류:503. 1000개 옵션을 넘는 범위는 반경 축소 요청.
 
 ## 담당자 확인 순서

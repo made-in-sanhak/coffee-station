@@ -34,7 +34,9 @@ export interface Menu {
   price: number;
   caffeineMg: number | null;
   source?: string;
-  checkedAt?: string;
+  checkedAt?: string | null;
+  priceScope?: 'STORE' | 'BRAND';
+  isDemo?: boolean;
   available?: boolean;
 }
 export type MenuInput = Omit<Menu, 'id' | 'cafeId'>;

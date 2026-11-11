@@ -22,10 +22,14 @@ export async function nearby(q:Record<string,unknown>,query:Select=select) {
   const latitude=number('latitude',-90,90),longitude=number('longitude',-180,180),radius=number('radius',1,5000);
   const names:Record<string,string>={'아메리카노':'아메리카노','아이스 아메리카노':'아메리카노','카페라떼':'카페라떼','아이스 카페라떼':'카페라떼'};
   if(typeof q.menu!=='string'||!names[q.menu]||!['HOT','ICE'].includes(String(q.temperature))
-    ||typeof q.size!=='string'||!q.size.trim()||q.size.length>40||!['price','distance'].includes(String(q.sort??'price'))
+    ||q.size!==undefined&&(typeof q.size!=='string'||!q.size.trim()||q.size.length>40)||!['price','distance'].includes(String(q.sort??'price'))
     ||String(q.menu).startsWith('아이스')&&q.temperature!=='ICE') throw new AppError(422,'메뉴·온도·사이즈·정렬을 확인하세요.');
   // Bounding square first; exact radius below. Fetch cap+1 and reject rather than silently truncate stores.
   const latDelta=radius/110000, lngDelta=radius/(110000*Math.max(0.001,Math.cos(latitude*Math.PI/180)));
+  const sizeFilter=q.size===undefined?'':' AND BINARY p.size=BINARY ?';
+  const params:(string|number)[]=[names[q.menu],String(q.temperature)];
+  if(typeof q.size==='string') params.push(q.size);
+  params.push(latitude-latDelta,latitude+latDelta,longitude-lngDelta,longitude+lngDelta);
   let rows:Record<string,unknown>[];
   try { rows=await query(`SELECT CAST(c.cafe_id AS CHAR) AS cafe_id,c.name,c.address,
     c.latitude,c.longitude,CAST(p.price_id AS CHAR) AS offer_id,m.standard_name,
@@ -33,10 +37,10 @@ export async function nearby(q:Record<string,unknown>,query:Select=select) {
     JOIN menu_prices p ON p.cafe_id=c.cafe_id JOIN menus m ON m.menu_id=p.menu_id
     WHERE p.source='DEMO' AND p.sale_status='ON_SALE' AND p.price>=0
     AND m.standard_name=? AND m.brand_id IS NULL AND m.is_decaf=0
-    AND p.option_name=? AND BINARY p.size=BINARY ?
+    AND p.option_name=?${sizeFilter}
     AND c.latitude BETWEEN ? AND ? AND c.longitude BETWEEN ? AND ?
     ORDER BY c.cafe_id,p.price,p.price_id LIMIT 1001`,
-    [names[q.menu],String(q.temperature),q.size,latitude-latDelta,latitude+latDelta,longitude-lngDelta,longitude+lngDelta]);
+    params);
   } catch {throw new AppError(503,'지도 매장 정보를 조회할 수 없습니다.');}
   if(rows.length>1000) throw new AppError(422,'조회 반경을 줄여주세요.');
   const cafes=new Map<string,any>();
@@ -48,7 +52,7 @@ export async function nearby(q:Record<string,unknown>,query:Select=select) {
     const distance=distanceMeters({latitude,longitude},{latitude:lat,longitude:lng});
     if(distance>radius) continue;
     const menu={id:r.offer_id,cafeId:r.cafe_id,name:r.standard_name,size:r.size,temperature:r.option_name,
-      price,caffeineMg:null,available:true,source:'DEMO (실제 가격 확인일 미확인)'};
+      price,caffeineMg:null,available:true,source:'DEMO',isDemo:true,checkedAt:null,priceScope:r.price_scope};
     const cafe=cafes.get(r.cafe_id)??{id:r.cafe_id,name:r.name,address:r.address,latitude:lat,longitude:lng,
       distance,minPrice:price,verified:false,tags:['시연 가격'],menus:[]};
     cafe.minPrice=Math.min(cafe.minPrice,price);cafe.menus.push(menu);cafes.set(r.cafe_id,cafe);

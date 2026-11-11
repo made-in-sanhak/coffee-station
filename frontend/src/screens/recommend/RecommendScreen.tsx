@@ -12,7 +12,7 @@ import {
   SocialText as Text,
 } from '../community/SocialParts';
 import { makeRecommendationRequest } from './recommendModel';
-import {fromProductConditions, type ProductProposal} from './recommendContract';
+import {fromProductConditions, toProductConditions, type ProductProposal} from './recommendContract';
 
 const purposes = ['드라이브스루'];
 const tastes = ['디카페인', '우유 들어간'];
@@ -101,7 +101,7 @@ export default function RecommendScreen({
     try {
       if (request.query.trim()) {
         const prepared = await api.post<ProductProposal>('/api/recommendations/chat/prepare',
-          {message: request.query.trim(), location: Object.keys(location).length
+          {message: request.query.trim(), selectedConditions: toProductConditions(request), location: Object.keys(location).length
             ? {lat:(location as {latitude:number}).latitude,lng:(location as {longitude:number}).longitude}
             : undefined});
         if (mounted.current && inputVersion.current === submittedVersion && navigation.isFocused?.() !== false) setProposal(prepared);
@@ -166,7 +166,8 @@ export default function RecommendScreen({
       {hint && <Notice>{hint}</Notice>}
       {proposal && <Notice>{proposal.unresolved.length
         ? `추가 확인이 필요합니다: ${proposal.unresolved.join(', ')}`
-        : `분석된 조건: ${proposal.conditions.maxPrice === null ? '예산 제한 없음' : `${proposal.conditions.maxPrice}원 이하`}, ${proposal.conditions.purpose === 'DRIVE_THRU' ? '드라이브스루' : '목적 제한 없음'}, ${proposal.conditions.tastes.join(', ') || '취향 제한 없음'}. 원문 근거: ${Object.values(proposal.evidence).join(', ') || '없음'}`}</Notice>}
+        : `최종 검색 조건: ${proposal.conditions.maxPrice === null ? '예산 제한 없음' : `${proposal.conditions.maxPrice}원 이하`}, ${proposal.conditions.purpose === 'DRIVE_THRU' ? '드라이브스루' : '목적 제한 없음'}, ${fromProductConditions(proposal.conditions, '').tastes.join(', ') || '취향 제한 없음'}. 자연어 근거: ${Object.values(proposal.evidence).join(', ') || '없음'}`}</Notice>}
+      <Notice>자연어를 입력해도 선택한 조건을 유지합니다. 문장에 명시한 예산·목적은 우선 적용하고, 취향은 선택한 항목과 합칩니다. 조건을 해제하려면 칩에서 변경해 주세요.</Notice>
       <View style={styles.group}>
         <Text style={styles.label}>예산</Text>
         <View style={styles.chips}>

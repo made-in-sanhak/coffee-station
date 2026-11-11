@@ -36,7 +36,8 @@ export async function explainProducts(result: Result, request: typeof fetch = fe
     const selected=new Map<string,string>();
     for (const entry of parsed.reasons) {
       const choice=choices.find(c=>c.id===entry?.id);
-      if (!choice || seen.has(choice.id) || entry.reason!==choice.price && entry.reason!==choice.distance)
+      if (!choice || seen.has(choice.id) || typeof entry?.reason !== 'string' || !entry.reason.trim()
+        || (entry.reason!==choice.price && entry.reason!==choice.distance))
         return result;
       seen.add(choice.id);selected.set(choice.id,entry.reason);
     }

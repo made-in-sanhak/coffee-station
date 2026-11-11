@@ -23,7 +23,7 @@ router.use((req, _res, next) => {
 });
 router.use('/mvp', midtermRouter);
 router.post('/search', async (req, res) => { res.json(ok(await explainProducts(await searchProducts(req.body?.conditions)))); });
-router.post('/chat/prepare', async (req,res) => { res.json(ok(await prepareProductChat(req.body?.message,undefined,req.body?.location))); });
+router.post('/chat/prepare', async (req,res) => { res.json(ok(await prepareProductChat(req.body?.message,undefined,req.body?.location,req.body?.selectedConditions))); });
 router.post('/chat/confirm', async (req,res) => {
   if (req.body?.confirmed !== true) throw new AppError(409,'조건 확인이 필요합니다.');
   res.json(ok(await explainProducts(await searchProducts(confirmProductChat(req.body?.proposalId)))));

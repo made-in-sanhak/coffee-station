@@ -19,6 +19,10 @@ Python 리뷰 작업 → 모의 분석 저장소 / 모의 JSON 파일 → Expres
 
 ## 로컬 시작
 
+현재 실행 가능한 발표용 최소 흐름과 검증 명령은 [로컬 MVP 실행](docs/mvp-local-run.md)을 참고하세요.
+`backend`의 `npm run dev:mvp`는 모의 자료, `npm run dev:mvp:db`는 기존 MySQL 시연 자료를 사용합니다.
+두 모드 모두 외부 AI 호출 없이 선택 검색·조건 확인·추천을 실행합니다.
+
 중간발표 준비 순서와 단계별 실행 프롬프트는 [AI 추천 MVP 계획](docs/midterm-ai-mvp-plan.md)을 따른다. Python 리뷰 Agent의 실제 서비스 연결은 이번 발표용 추천의 선행 조건이 아니다.
 
 Node.js, Python 3.11 이상을 사용한다. `.env.example`을 복사해 필요한 값만 채우고 비밀값을 저장소에 넣지 않는다. 모의 추천 테스트에는 Gemini 키·실제 DB가 필요 없다.

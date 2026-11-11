@@ -8,7 +8,7 @@ jest.mock('../src/api/endpoints/midterm', () => ({midtermApi: {
 }}));
 jest.mock('react-native-safe-area-context', () => ({SafeAreaView:require('react-native').View}));
 const result = {status:'RESULT',data_mode:'mock',notice:'임시 자료',recommendations:[
-  {offer_id:'demo-1',cafe_id:'demo-a',cafe_name:'가상 매장',reason:'아메리카노 ICE M, 3000원'},
+  {offer_id:'demo-1',cafe_id:'demo-a',cafe_name:'가상 매장',menu_name:'아메리카노',temperature:'ICE',size:'M',price_krw:3000,reason:'아메리카노 ICE M, 3000원'},
 ]};
 test('chips search directly; text changes invalidate proposal; confirmation sends reviewed conditions', async () => {
   const constraints = {menu_code:'AMERICANO',temperature:'ICE',size:null,max_price_krw:4000,sort_by:'price',limit:10};
@@ -26,8 +26,10 @@ test('chips search directly; text changes invalidate proposal; confirmation send
     await press('선택 조건 검색');
     expect(midtermApi.search).toHaveBeenCalledWith(constraints);
     expect(midtermApi.prepare).not.toHaveBeenCalled();
+    expect(JSON.stringify(tree.toJSON())).toContain('3,000');
+    expect(JSON.stringify(tree.toJSON())).toContain('모의 가격');
     await press('자연어 조건 준비');
-    await act(async () => {tree.root.findByType(TextInput).props.onChangeText('수정한 요청');});
+    await act(async () => {tree.root.findByProps({accessibilityLabel:'MVP 자연어 요청'}).props.onChangeText('수정한 요청');});
     expect(tree.root.findAllByType(Button).some(b=>b.props.title==='확인 후 추천')).toBe(false);
     await press('자연어 조건 준비');
     await press('5천 원 미만');

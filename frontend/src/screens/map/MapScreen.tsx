@@ -16,7 +16,6 @@ import TimeDealPromotion from '../events/TimeDealPromotion';
 import ExploreIcon from '../../components/map/ExploreIcon';
 import KakaoMapView, {
   type KakaoPlace,
-  type MapMarker,
 } from '../../components/map/KakaoMapView';
 import type { RootStackScreenProps } from '../../navigation/types';
 import { usePersonalStore } from '../../store/personalStore';
@@ -26,7 +25,6 @@ import {
   cheapestMenu,
   distanceLabel,
   filterCafes,
-  mergeCafeSources,
   MENU_CHOICES,
   type CafeSort,
 } from './exploreLogic';
@@ -35,7 +33,6 @@ import { useExploreSession } from './exploreSession';
 const SORTS: { value: CafeSort; label: string }[] = [
   { value: 'price', label: '가격순' },
   { value: 'distance', label: '거리순' },
-  { value: 'rating', label: '평점순' },
 ];
 
 export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
@@ -48,15 +45,13 @@ export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
   );
   const [menu, setMenu] = useState(preferences.menus[0] ?? '아이스 아메리카노');
   const [size, setSize] = useState<string | null>(null);
-  const temperature = preferences.temperatures[0] ?? 'ICE';
+  const [temperature, setTemperature] = useState(preferences.temperatures[0] ?? 'ICE');
+  const sizeOptions = useResource<string[]>('/api/cafes/options');
   const [driveThrough, setDriveThrough] = useState(false);
   const [openOnly, setOpenOnly] = useState(false);
   const [priceLimit, setPriceLimit] = useState(false);
   const [sort, setSort] = useState<CafeSort>('price');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [sdkCafes, setSdkCafes] = useState<Cafe[]>(
-    useExploreSession.getState().cafes,
-  );
   const [message, setMessage] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
   const [listening, setListening] = useState(false);
@@ -70,8 +65,8 @@ export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
     sort,
   });
   const cafes = useMemo(
-    () => mergeCafeSources(sdkCafes, response.data ?? []),
-    [sdkCafes, response.data],
+    () => response.data ?? [],
+    [response.data],
   );
   useEffect(() => {
     useExploreSession.getState().setCafes(cafes);
@@ -81,7 +76,7 @@ export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
   }, [preferences.menus]);
   const visible = useMemo(
     () =>
-      filterCafes(cafes, {
+      filterCafes(cafes.filter(cafe => cheapestMenu(cafe, menu, size, temperature) !== null), {
         menu,
         size,
         temperature,
@@ -96,7 +91,7 @@ export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
   const rows = selected
     ? [selected, ...visible.filter(cafe => cafe.id !== selected.id)]
     : visible;
-  const markers = useMemo<MapMarker[]>(
+  const markers = useMemo(
     () =>
       visible.map(cafe => ({
         id: cafe.id,
@@ -120,10 +115,6 @@ export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
     },
     [],
   );
-  const onPlaces = useCallback((places: KakaoPlace[]) => {
-    setSdkCafes(places);
-    setMessage(null);
-  }, []);
   const onSearchResult = useCallback((place: KakaoPlace) => {
     useExploreSession.getState().updateCenter(place);
     useExploreSession.getState().setPlaceName(place.name);
@@ -224,7 +215,6 @@ export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
           onCenterChange={onCenterChange}
           command={command}
           browseNearby
-          onPlaces={onPlaces}
           onSearchResult={onSearchResult}
           onSearchError={setMessage}
           onPlacesError={setMessage}
@@ -320,6 +310,22 @@ export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
         ) : null}
         <View style={styles.bottomSheet}>
           <View style={styles.handle} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="매장 가격 새로고침"
+            onPress={response.reload}
+            style={{ paddingHorizontal: 20, paddingVertical: 8 }}
+          >
+            <Text style={styles.emptyText}>
+              {response.error
+                ? `가격 정보를 불러오지 못했습니다: ${response.error} (눌러서 재시도)`
+                : response.loading
+                ? '매장 가격을 불러오고 있습니다.'
+                : response.data?.length
+                ? `주변 ${response.data.length}개 매장의 가격 정보를 조회했습니다. 선택한 메뉴·사이즈·온도에 등록된 가격을 표시합니다. (새로고침)`
+                : '이 지역에 등록된 매장 가격이 없습니다. 행신역 시연 데이터는 행신역 주변에서 확인하세요. (새로고침)'}
+            </Text>
+          </Pressable>
           <View style={styles.sheetHeading}>
             <Pressable
               testID="map-compare"
@@ -354,7 +360,8 @@ export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
           >
             <ScrollView horizontal>
               <Chip label="전체 사이즈" selected={size === null} onPress={() => setSize(null)} />
-              {[...new Set(cafes.flatMap(c => (c.menus ?? []).map(m => m.size)))].map(value =>
+              {['ICE','HOT'].map(value => <Chip key={value} label={value} selected={temperature===value} onPress={()=>setTemperature(value)} />)}
+              {[...new Set([...(sizeOptions.data ?? []),...cafes.flatMap(c => (c.menus ?? []).map(m => m.size))])].map(value =>
                 <Chip key={value} label={value} selected={size === value} onPress={() => setSize(value)} />)}
             </ScrollView>
             {rows.map(cafe => {
@@ -418,7 +425,7 @@ export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
                     ? '설정에서 지도 JavaScript 키를 입력해 주세요.'
                     : driveThrough || openOnly || priceLimit
                     ? '선택한 조건이 확인된 카페가 없습니다.'
-                    : '주변 카페가 조회되면 여기에 표시됩니다.'}
+                    : '선택한 메뉴·온도·사이즈에 등록된 매장 가격이 없습니다.'}
                 </Text>
                 <Pressable
                   accessibilityRole="button"
@@ -448,7 +455,7 @@ export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
           </Text>
           <ScrollView>
             {chooser === 'menu'
-              ? MENU_CHOICES.map(label => (
+              ? ['아이스 아메리카노', '카페라떼'].map(label => (
                   <Pressable
                     key={label}
                     accessibilityRole="button"

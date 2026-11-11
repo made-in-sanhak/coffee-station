@@ -2,11 +2,12 @@
 // 기능별 호출 함수는 src/api/endpoints/기능.ts 에 만들고 apiFetch 를 사용하세요.
 import { useConfigStore } from '../store/configStore';
 import { isParkMockToken } from '../integration/parkSession';
+import { DEFAULT_API_BASE_URL, resolveApiBaseUrl } from '../config/buildEnvironment';
 
-// Android 에뮬레이터에서 PC의 localhost 는 10.0.2.2 입니다.
-// 실제 폰으로 테스트할 때는 PC의 IP(예: http://192.168.0.10:8080)로 바꾸세요.
-export const API_BASE_URL = 'http://10.0.2.2:8080';
-export const getApiBaseUrl = () => useConfigStore.getState().backendUrl || API_BASE_URL;
+// Android Studio 기본 에뮬레이터에서 노트북의 localhost에 접근하는 주소입니다.
+// USB 실기기는 adb reverse 후 앱 설정에서 http://127.0.0.1:8080을 사용합니다.
+export const API_BASE_URL = DEFAULT_API_BASE_URL;
+export const getApiBaseUrl = () => resolveApiBaseUrl(__DEV__, useConfigStore.getState().backendUrl);
 export const BACKEND_AVAILABLE = true;
 
 // 서버 공통 응답 형식 (backend ApiResponse 와 동일)

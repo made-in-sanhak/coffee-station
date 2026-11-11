@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { native } from '../app/native';
-const KEY = 'coffee.config.v1';
+const KEY = __DEV__ ? 'coffee.config.development.v1' : 'coffee.config.production.v1';
 let revision = 0;
 interface ConfigState {
   backendUrl: string;
@@ -10,7 +10,8 @@ interface ConfigState {
 }
 export function normalizeBackendUrl(input: string): string {
   const value = input.trim().replace(/\/+$/, '');
-  if (value && !/^https:\/\/[^\s/?#:@]+(?::\d+)?(?:\/[^\s?#]*)?$/.test(value))
+  const localDevelopment = __DEV__ && /^http:\/\/(?:127\.0\.0\.1|localhost|10\.0\.2\.2)(?::\d+)?$/.test(value);
+  if (value && !localDevelopment && !/^https:\/\/[^\s/?#:@]+(?::\d+)?(?:\/[^\s?#]*)?$/.test(value))
     throw new Error('서버 주소는 https://로 시작하는 주소를 입력해 주세요.');
   return value;
 }

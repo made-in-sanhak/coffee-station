@@ -2,6 +2,8 @@ import React, {useEffect, useRef, useState} from 'react';
 import {Button, ScrollView, Text, TextInput, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {midtermApi, MidtermConditions, MidtermProposal, MidtermResult} from '../../api/endpoints/midterm';
+import {getApiBaseUrl} from '../../api/client';
+import {useConfigStore} from '../../store/configStore';
 
 const initial: MidtermConditions = {menu_code:'AMERICANO', temperature:'ICE', size:null,
   max_price_krw:4000, sort_by:'price', limit:10};
@@ -14,6 +16,7 @@ export default function MidtermTestScreen() {
   const [result, setResult] = useState<MidtermResult | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [serverUrl, setServerUrl] = useState(getApiBaseUrl);
   const active = useRef(true), pending = useRef(false);
   useEffect(() => { active.current = true; return () => {active.current = false;}; }, []);
   const run = async (action: () => Promise<void>) => {
@@ -27,8 +30,14 @@ export default function MidtermTestScreen() {
   if (!__DEV__) return null;
   return <SafeAreaView style={{flex:1}}><ScrollView contentContainerStyle={{padding:20, gap:14}}>
     <Text>개발용 MVP 추천 테스트</Text>
-    <Text>임시 데이터입니다. 지도·실제 매장 연결은 하지 않습니다. 위치·목적·취향 조건은 지원하지 않습니다.</Text>
+    <Text>발표용 추천입니다. 서버 설정에 따라 모의 자료 또는 DB 시연 가격을 검색합니다. 지도·위치·목적·취향 조건은 지원하지 않습니다.</Text>
     <Text>PC 서버: Android 에뮬레이터 기본 주소 10.0.2.2:8080. 서버 EXTRACTION_MODE=mock으로 실행하세요.</Text>
+    <TextInput accessibilityLabel="MVP 서버 주소" value={serverUrl} onChangeText={setServerUrl}
+      editable={!busy} autoCapitalize="none" autoCorrect={false} keyboardType="url" />
+    <Button disabled={busy} title="서버 주소 적용" onPress={() => {
+      setProposal(null);
+      void run(async () => {await useConfigStore.getState().setBackendUrl(serverUrl);});
+    }} />
     <Text>메뉴: {conditions.menu_code ?? '전체'} / 온도: {conditions.temperature ?? '전체'}</Text>
     <View style={{gap:6}}>
       <Button disabled={busy} title="아메리카노" onPress={() => change({...conditions, menu_code:'AMERICANO'})} />
@@ -67,9 +76,13 @@ export default function MidtermTestScreen() {
     {!!error && <Text accessibilityRole="alert">{error}</Text>}
     {result && <><Text>{result.status} / {result.data_mode}</Text><Text>{result.notice}</Text>
       {!result.recommendations.length && <Text>조건에 맞는 결과가 없습니다.</Text>}
-      {result.recommendations.map(item => <Text key={item.offer_id}>
-        {item.cafe_name} ({item.cafe_id}) / {item.reason}
-      </Text>)}
+      {result.recommendations.map(item => <View key={item.offer_id} style={{padding:12, borderWidth:1, borderColor:'#ddd', gap:4}}>
+        <Text>{item.cafe_name}</Text>
+        <Text>{item.menu_name} · {item.size} · {item.temperature}</Text>
+        <Text>{item.price_krw.toLocaleString('ko-KR')}원</Text>
+        <Text>{item.reason}</Text>
+        <Text>{result.data_mode === 'database' ? 'DB 시연 가격 · 실제 가격 확인일 미확인' : '모의 가격'}</Text>
+      </View>)}
     </>}
   </ScrollView></SafeAreaView>;
 }

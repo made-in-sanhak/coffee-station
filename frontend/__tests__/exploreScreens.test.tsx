@@ -96,7 +96,14 @@ beforeEach(() => {
 });
 afterEach(() => jest.useRealTimers());
 
-test('an anonymous map shows actual SDK cafes without inventing prices and opens the selected cafe', async () => {
+test('map shows only DB cafes with a matching price, excluding duplicate SDK places and unpriced DB cafes', async () => {
+  mockResources['/api/cafes'] = [
+    {id:'9001',name:'SDK가 조회한 카페',address:'행신',latitude:37.5,longitude:127,
+      menus:[{id:'9028',cafeId:'9001',name:'아메리카노',size:'기본',temperature:'ICE',price:1800,caffeineMg:null,available:true}]},
+    {id:'9002',name:'가격 없는 DB 매장',address:'행신',latitude:37.5,longitude:127,menus:[]},
+    {id:'9003',name:'HOT 전용 매장',address:'행신',latitude:37.5,longitude:127,
+      menus:[{id:'9030',cafeId:'9003',name:'아메리카노',size:'기본',temperature:'HOT',price:1500,caffeineMg:null,available:true}]},
+  ];
   const nav = navigation();
   let tree: Renderer.ReactTestRenderer;
   await act(() => {
@@ -130,12 +137,17 @@ test('an anonymous map shows actual SDK cafes without inventing prices and opens
   expect(useKakaoSettingsStore.getState().settings.kakaoNativeAppKey).toBe('');
   expect(
     tree!.root.findAll(node => node.props.children === '가격 미등록').length,
-  ).toBeGreaterThan(0);
-  await act(() => byId(tree!, 'cafe-42').props.onPress());
+  ).toBe(0);
+  expect(byId(tree!, 'cafe-42')).toBeUndefined();
+  expect(byId(tree!, 'cafe-9002')).toBeUndefined();
+  expect(byId(tree!, 'cafe-9003')).toBeUndefined();
+  expect(JSON.stringify(tree!.toJSON())).toContain('1,800');
+  expect(useExploreSession.getState().cafes.map(cafe=>cafe.id)).not.toContain('42');
+  await act(() => byId(tree!, 'cafe-9001').props.onPress());
   expect(nav.navigate).toHaveBeenCalledWith(
     'CafeDetail',
     expect.objectContaining({
-      cafeId: '42',
+      cafeId: '9001',
       cafe: expect.objectContaining({
         name: 'SDK가 조회한 카페',
         latitude: 37.5,
@@ -143,8 +155,27 @@ test('an anonymous map shows actual SDK cafes without inventing prices and opens
     }),
   );
   await act(() => byLabel(tree!, '3천원 이하').props.onPress());
-  expect(byId(tree!, 'cafe-42')).toBeUndefined();
+  expect(byId(tree!, 'cafe-9001')).toBeDefined();
   await act(() => tree!.unmount());
+});
+
+test('nearby stores remain individual price markers and can be selected directly', async () => {
+  mockResources['/api/cafes']=['9006','9007'].map((id,index)=>({
+    id,name:index?'빽다방 행신역점':'우지커피 행신역점',address:'충경로 52',latitude:37.6152,longitude:126.8353,
+    menus:[{id:`offer-${id}`,cafeId:id,name:'아메리카노',size:'기본',temperature:'ICE',price:2000,caffeineMg:null,isDemo:true}],
+  }));
+  let tree!:Renderer.ReactTestRenderer;
+  await act(()=>{tree=Renderer.create(<MapScreen {...props<React.ComponentProps<typeof MapScreen>>(navigation())} />);});
+  try {
+    const document=tree.root.findAll(node=>typeof node.props.source?.html==='string')[0];
+    await act(()=>{
+      document.props.onMessage({nativeEvent:{data:'{"type":"ready"}'}});
+      document.props.onMessage({nativeEvent:{data:'{"type":"markerPress","id":"9007"}'}});
+    });
+    expect(tree.root.findAll(node=>node.props.testID==='marker-group-modal')).toHaveLength(0);
+    expect(byId(tree,'cafe-9006')).toBeDefined();
+    expect(byId(tree,'cafe-9007')).toBeDefined();
+  } finally {await act(()=>tree.unmount());}
 });
 
 test('place submission sends a search command to the existing Map instead of adding another Map', async () => {

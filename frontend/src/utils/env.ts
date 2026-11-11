@@ -13,5 +13,5 @@ export const env = {
   kakaoMapJsKey: KAKAO_MAP_JS_KEY ?? '',
   // 백엔드 API 가 나오기 전까지는 가짜 데이터로 동작합니다.
   // 실제 서버에 붙일 때 .env 에 USE_MOCK_API=false 를 넣으세요.
-  useMockApi: USE_MOCK_API !== 'false',
+  useMockApi: __DEV__ && USE_MOCK_API !== 'false',
 };

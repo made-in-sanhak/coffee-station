@@ -1,3 +1,5 @@
+import storesRouter from './routes/stores';
+import localCafesRouter from './routes/cafes';
 import express from 'express';
 import cors from 'cors';
 import healthRouter from './routes/health';
@@ -21,6 +23,8 @@ app.use('/api/cafes', reviewSummariesRouter);
 app.use('/api/cafes', cafesRouter);
 // 기능 라우터는 여기에 추가합니다. 예)
 // app.use('/api/cafes', cafeRouter);
+app.use('/stores', storesRouter);
+app.use('/api/cafes', localCafesRouter);
 
 // 아래 두 줄은 항상 맨 마지막에 둡니다.
 app.use(notFound);

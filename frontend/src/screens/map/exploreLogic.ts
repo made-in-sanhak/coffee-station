@@ -24,13 +24,17 @@ export function mergeCafeSources(
   for (const cafe of serverCafes) {
     const match = [...merged.values()].find(
       item =>
-        item.id === cafe.id ||
-        (!!cafe.placeUrl && item.placeUrl === cafe.placeUrl) ||
-        (item.name.replace(/\s/g, '') === cafe.name.replace(/\s/g, '') &&
-          Math.abs(item.latitude - cafe.latitude) < 0.0002 &&
-          Math.abs(item.longitude - cafe.longitude) < 0.0002),
+        (!item.placeUrl && item.id === cafe.id) ||
+        (!!cafe.placeUrl && item.placeUrl === cafe.placeUrl),
     );
     if (match) merged.delete(match.id);
+    else if (merged.has(cafe.id)) {
+      // A Kakao place ID can numerically equal an unrelated internal DB ID.
+      const sdk = merged.get(cafe.id)!;
+      merged.delete(cafe.id);
+      const sdkId = `kakao:${sdk.id}`;
+      merged.set(sdkId, {...sdk, id:sdkId});
+    }
     merged.set(cafe.id, {
       ...match,
       ...cafe,

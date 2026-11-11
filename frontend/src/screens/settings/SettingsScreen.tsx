@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { apiFetch } from '../../api/client';
+import { DEFAULT_API_BASE_URL } from '../../config/buildEnvironment';
 import { Button, Field, Notice, Screen, tokens } from '../../app/ui';
 import { KAKAO_MAP_BASE_URL } from '../../components/map/mapConfig';
 import type { RootStackScreenProps } from '../../navigation/types';
@@ -57,9 +58,9 @@ export default function SettingsScreen({
     setMessage(null);
     try {
       const nextUrl = normalizeBackendUrl(url);
-      if (nextUrl !== backendUrl) await useSessionStore.getState().logout();
+      if (__DEV__ && nextUrl !== backendUrl) await useSessionStore.getState().logout();
       await useKakaoSettingsStore.getState().saveSettings(draft);
-      await useConfigStore.getState().setBackendUrl(nextUrl);
+      if (__DEV__) await useConfigStore.getState().setBackendUrl(nextUrl);
       if (mounted.current && navigation.isFocused?.() !== false)
         navigation.goBack();
     } catch (reason) {
@@ -155,13 +156,13 @@ export default function SettingsScreen({
       <Field
         testID="settings-server-url"
         label="서비스 서버 주소"
-        value={url}
+        value={__DEV__ ? url : DEFAULT_API_BASE_URL}
         onChangeText={setUrl}
-        placeholder="https://서버주소"
+        placeholder={__DEV__ ? DEFAULT_API_BASE_URL : 'https://서버주소'}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="url"
-        editable={!busy && !hydrating}
+        editable={__DEV__ && !busy && !hydrating}
       />
       <Text style={styles.hint}>
         리뷰·모임·점주 관리·REST 로그인은 서비스 서버를 사용합니다.

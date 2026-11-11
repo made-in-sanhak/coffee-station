@@ -32,7 +32,7 @@ export async function nearby(q:Record<string,unknown>,query:Select=select) {
   params.push(latitude-latDelta,latitude+latDelta,longitude-lngDelta,longitude+lngDelta);
   let rows:Record<string,unknown>[];
   try { rows=await query(`SELECT CAST(c.cafe_id AS CHAR) AS cafe_id,c.name,c.address,
-    c.latitude,c.longitude,CAST(p.price_id AS CHAR) AS offer_id,m.standard_name,
+    c.latitude,c.longitude,c.kakao_place_id,CAST(p.price_id AS CHAR) AS offer_id,m.standard_name,
     p.size,p.option_name,p.price,p.price_scope FROM cafes c
     JOIN menu_prices p ON p.cafe_id=c.cafe_id JOIN menus m ON m.menu_id=p.menu_id
     WHERE p.source='DEMO' AND p.sale_status='ON_SALE' AND p.price>=0
@@ -54,12 +54,22 @@ export async function nearby(q:Record<string,unknown>,query:Select=select) {
     const menu={id:r.offer_id,cafeId:r.cafe_id,name:r.standard_name,size:r.size,temperature:r.option_name,
       price,caffeineMg:null,available:true,source:'DEMO',isDemo:true,checkedAt:null,priceScope:r.price_scope};
     const cafe=cafes.get(r.cafe_id)??{id:r.cafe_id,name:r.name,address:r.address,latitude:lat,longitude:lng,
-      distance,minPrice:price,verified:false,tags:['시연 가격'],menus:[]};
+      distance,minPrice:price,verified:false,tags:['시연 가격'],menus:[],
+      placeUrl:r.kakao_place_id?`https://place.map.kakao.com/${encodeURIComponent(String(r.kakao_place_id))}`:undefined};
     cafe.minPrice=Math.min(cafe.minPrice,price);cafe.menus.push(menu);cafes.set(r.cafe_id,cafe);
   }
   return [...cafes.values()].sort((a,b)=>(q.sort==='distance'?a.distance-b.distance:a.minPrice-b.minPrice)||a.id.localeCompare(b.id));
 }
 const router=Router();
+router.get('/options',async(_req,res)=>{
+  if(env.nodeEnv==='production'||env.catalogMode!=='mysql-seed') throw new AppError(503,'개발용 DB 지도 조회를 활성화하세요.');
+  try {
+    const rows=await select(`SELECT DISTINCT p.size FROM menu_prices p JOIN menus m ON m.menu_id=p.menu_id
+      WHERE p.source='DEMO' AND p.sale_status='ON_SALE' AND m.brand_id IS NULL AND m.is_decaf=0
+      AND m.standard_name IN ('아메리카노','카페라떼') ORDER BY p.size`,[]);
+    res.json(ok(rows.map(row=>String(row.size))));
+  } catch {throw new AppError(503,'매장 사이즈 정보를 조회할 수 없습니다.');}
+});
 router.get('/',async(req,res)=>{
   if(env.nodeEnv==='production'||env.catalogMode!=='mysql-seed') throw new AppError(503,'개발용 DB 지도 조회를 활성화하세요.');
   res.json(ok(await nearby(req.query)));

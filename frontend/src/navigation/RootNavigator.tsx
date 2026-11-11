@@ -41,13 +41,13 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function RootNavigator() {
   const isLoggedIn = useAuthStore(state => state.accessToken !== null);
   const serviceUser = useSessionStore(state => state.user);
+  const authBranch = isLoggedIn ? (serviceUser ? 'service' : 'preview') : 'guest';
   const isCompleted = usePreferenceStore(state => state.isCompleted);
   const hasHydrated = usePreferenceStore(state => state.hasHydrated);
   const completeSetup = usePreferenceStore(state => state.completeSetup);
   if (!hasHydrated) return null;
   return (
     <Stack.Navigator
-      key={isLoggedIn ? (serviceUser ? 'service' : 'preview') : 'guest'}
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: tokens.bg },
@@ -96,11 +96,11 @@ export default function RootNavigator() {
       <Stack.Screen name="OrderComplete" component={OrderCompleteScreen} />
       <Stack.Screen name="PaymentFailure" component={PaymentFailureScreen} />
       <Stack.Screen name="Events" component={EventsScreen} />
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="KakaoLogin" component={KakaoLoginScreen} options={{ headerShown: true, title: '카카오 로그인' }} />
+      <Stack.Screen navigationKey={authBranch} name="Login" component={LoginScreen} />
+      <Stack.Screen navigationKey={authBranch} name="KakaoLogin" component={KakaoLoginScreen} options={{ headerShown: true, title: '카카오 로그인' }} />
       </> : <>
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="KakaoLogin" component={KakaoLoginScreen} options={{ headerShown: true, title: '카카오 로그인' }} />
+        <Stack.Screen navigationKey={authBranch} name="Login" component={LoginScreen} />
+        <Stack.Screen navigationKey={authBranch} name="KakaoLogin" component={KakaoLoginScreen} options={{ headerShown: true, title: '카카오 로그인' }} />
       </>}
       {__DEV__ && <Stack.Screen name="MidtermTest" component={MidtermTestScreen} />}
     </Stack.Navigator>

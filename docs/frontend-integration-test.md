@@ -1,5 +1,7 @@
 # 로컬 프런트·추천 MVP 통합 실험
 
+> 작성 당시 통합 검증 기록. 현재 검증 절차와 문서 분류는 [문서 안내](README.md)를 따른다.
+
 2026-11-11. `feature/14-midterm-recommendation`에서 만든 `codex/mvp-frontend-integration`에서 PR #16의 `feature/15-frontend-integration`을 병합했다. 팀원의 Android 환경에서 검증하기 위한 별도 공유 브랜치다. 기존 PR #16/#17과 develop은 변경하지 않는다.
 
 ## 다른 PC에서 받기

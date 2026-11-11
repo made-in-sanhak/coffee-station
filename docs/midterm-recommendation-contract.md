@@ -1,5 +1,7 @@
 # 발표 추천 입력·데이터 계약 초안 (A단계)
 
+> 개발용 `/api/recommendations/mvp` 계약과 당시 실험 기록. 제품 추천 탭의 목표 계약은 [문서 안내](README.md)를 따른다.
+
 ## 현재 MVP API 연결 상태
 
 실제 로컬 HTTP 검증: 2026-11-10 Gemini 1회로 prepare HTTP 200/AWAITING_CONFIRMATION→명시적 confirm HTTP 200/RESULT 통과. 아메리카노 ICE·4000원 이하 조건에서 모의 옵션 demo-1(3000), demo-3(4000)을 반환했다. 전체 2126ms, confirm LLM 0회. 실제 DB·프런트는 미연결이며 운영 차단은 유지한다. 서버 종료 완료.

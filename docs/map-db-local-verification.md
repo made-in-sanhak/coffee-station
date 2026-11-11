@@ -1,5 +1,7 @@
 # 행신 지도 DB 로컬 검증 — 진행 기록
 
+> 작성 당시 PC/API 검증 기록. 현재 기기 화면 검증과 구분한다. [문서 안내](README.md) 참조.
+
 2026-11-11, `codex/mvp-frontend-integration`, HEAD `fd82b28`.
 기존 미커밋 변경을 보존했으며 Git 작업이나 DB 쓰기는 하지 않았다.
 

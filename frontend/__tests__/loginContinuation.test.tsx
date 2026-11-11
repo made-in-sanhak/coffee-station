@@ -1,10 +1,10 @@
 import React from 'react';
 import Renderer, { act } from 'react-test-renderer';
 import { Alert } from 'react-native';
+import { createNavigationContainerRef, NavigationContainer } from '@react-navigation/native';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { CommonActions, StackActions, StackRouter } from '@react-navigation/routers';
 import RootNavigator from '../src/navigation/RootNavigator';
-import KakaoLoginScreen from '../src/screens/auth/KakaoLoginScreen';
+import type { RootStackParamList } from '../src/navigation/types';
 import { useAuthStore } from '../src/store/authStore';
 import { usePreferenceStore } from '../src/store/preferenceStore';
 import { useSessionStore } from '../src/store/sessionStore';
@@ -14,183 +14,199 @@ import { env } from '../src/utils/env';
 let mockStackMounts = 0;
 jest.mock('@react-navigation/native-stack', () => {
   const ReactModule = require('react');
-  return { createNativeStackNavigator: () => ({
-    Navigator: ({ children }: { children: React.ReactNode }) => {
-      ReactModule.useEffect(() => { mockStackMounts++; }, []); return children;
-    },
-    Screen: () => null,
-  }) };
+  const { createNavigatorFactory, useNavigationBuilder } = require('@react-navigation/native');
+  const { StackRouter } = require('@react-navigation/routers');
+  function TestStack(props: object) {
+    const { state, descriptors, NavigationContent } = useNavigationBuilder(StackRouter, props);
+    ReactModule.useEffect(() => { mockStackMounts++; }, []);
+    return ReactModule.createElement(
+      NavigationContent,
+      null,
+      descriptors[state.routes[state.index].key].render(),
+    );
+  }
+  return { createNativeStackNavigator: createNavigatorFactory(TestStack) };
 });
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('react-native').View }));
+jest.mock('../src/screens/map/MapScreen', () => () => null);
+jest.mock('../src/screens/community/CommunityScreen', () => () => null);
+jest.mock('../src/screens/community/ReviewWriteScreen', () => () => null);
 
-const preview = { accessToken: 'mock-access-token', refreshToken: 'mock-refresh-token',
-  user: { id: 1, nickname: 'fixture preview', profileImageUrl: null } };
-const service = { accessToken: 'fixture-service-access', refreshToken: 'fixture-service-refresh',
-  user: { id: 42, nickname: 'fixture member', profileImageUrl: null } };
+const preview = {
+  accessToken: 'mock-access-token', refreshToken: 'mock-refresh-token',
+  user: { id: 1, nickname: 'fixture preview', profileImageUrl: null },
+};
+const service = {
+  accessToken: 'fixture-service-access', refreshToken: 'fixture-service-refresh',
+  user: { id: 42, nickname: 'fixture member', profileImageUrl: null },
+};
 const previousFetch = globalThis.fetch;
 const originalMockMode = env.useMockApi;
 const trees: Renderer.ReactTestRenderer[] = [];
-type StateShape = { routes: Array<{ name: string; key: string }>; index: number };
 
-// Native presentation is excluded; the back stack and actions use the actual
-// React Navigation StackRouter, including popTo and reset rehydration.
-function stack(authenticated: boolean, complete: boolean, rootOverride?: string) {
-  const routeNames = authenticated
-    ? [...(complete ? [] : ['Preference']), 'Map', 'Community', 'Login', 'KakaoLogin']
-    : ['Login', 'KakaoLogin'];
-  const root = rootOverride ?? (authenticated ? complete ? 'Map' : 'Preference' : 'Login');
-  const router = StackRouter({ initialRouteName: root });
-  const options = { routeNames, routeParamList: {}, routeGetIdList: {} };
-  let state = router.getInitialState(options);
-  const actions: string[] = [];
-  const dispatch = (action: ReturnType<typeof CommonActions.goBack> | ReturnType<typeof StackActions.push> | any) => {
-    const next = router.getStateForAction(state, action, options);
-    if (!next) throw new Error('Unexpected unhandled test navigation');
-    state = next.stale === false ? next : router.getRehydratedState(next, options);
-    actions.push(action.type);
-  };
-  const navigation = {
-    getState: () => state,
-    popTo: (name: string) => dispatch(StackActions.popTo(name)),
-    reset: (next: object) => dispatch(CommonActions.reset(next as any)),
-    goBack: () => dispatch(CommonActions.goBack()),
-    navigate: (name: string) => dispatch(CommonActions.navigate(name)),
-    isFocused: () => state.routes[state.index].name === 'KakaoLogin',
-  };
-  return { navigation, push: (name: string) => dispatch(StackActions.push(name)),
-    state: () => state as StateShape, names: () => state.routes.map(route => route.name), actions };
-}
-async function mount(navigation: ReturnType<typeof stack>['navigation'], params?: object) {
+async function mount() {
+  const nav = createNavigationContainerRef<RootStackParamList>();
   let tree!: Renderer.ReactTestRenderer;
-  await act(async () => { tree = Renderer.create(<QueryClientProvider client={queryClient}>
-    <RootNavigator />
-    <KakaoLoginScreen {...({ navigation, route: { name: 'KakaoLogin', key: 'fixture-auth', params } } as any)} />
-  </QueryClientProvider>); });
-  trees.push(tree); return tree;
+  await act(async () => {
+    tree = Renderer.create(
+      <QueryClientProvider client={queryClient}>
+        <NavigationContainer ref={nav}><RootNavigator /></NavigationContainer>
+      </QueryClientProvider>,
+    );
+  });
+  trees.push(tree);
+  return { tree, nav, names: () => nav.getRootState()?.routes.map(route => route.name) };
 }
-async function sendCode(tree: Renderer.ReactTestRenderer) {
-  const web = tree.root.findAll(node => typeof node.props.source?.uri === 'string')[0];
-  let allowed!: boolean;
-  await act(async () => { allowed = web.props.onShouldStartLoadWithRequest({ url: `${env.kakaoRedirectUri}?code=fixture-code` }); });
+
+function webView(tree: Renderer.ReactTestRenderer) {
+  return tree.root.findAll(node => typeof node.props.onShouldStartLoadWithRequest === 'function')[0];
+}
+
+async function sendCode(tree: Renderer.ReactTestRenderer, repeat = false) {
+  const web = webView(tree);
+  const callback = { url: `${env.kakaoRedirectUri}?code=fixture-code` };
+  await act(async () => {
+    expect(web.props.onShouldStartLoadWithRequest(callback)).toBe(false);
+    if (repeat) expect(web.props.onShouldStartLoadWithRequest(callback)).toBe(false);
+  });
   await act(async () => { await new Promise<void>(resolve => setTimeout(resolve, 0)); });
-  expect(allowed).toBe(false);
 }
+
 function serviceTransport(success = true) {
-  globalThis.fetch = jest.fn(async () => ({ ok: success,
-    json: async () => success ? { success: true, data: service, message: null }
+  globalThis.fetch = jest.fn(async () => ({
+    ok: success,
+    json: async () => success
+      ? { success: true, data: service, message: null }
       : { success: false, data: null, message: 'fixture login failed' },
   } as Response));
 }
-beforeAll(() => { queryClient.setDefaultOptions({ queries: { retry: false, gcTime: 0 }, mutations: { gcTime: 0 } }); });
+
+beforeAll(() => {
+  queryClient.setDefaultOptions({ queries: { retry: false, gcTime: 0 }, mutations: { gcTime: 0 } });
+});
 beforeEach(() => {
-  mockStackMounts = 0; useAuthStore.getState().logout();
+  mockStackMounts = 0;
+  useAuthStore.getState().logout();
   usePreferenceStore.setState({ hasHydrated: true, isCompleted: true, preferences: null });
   env.useMockApi = true;
 });
 afterEach(async () => {
   await act(() => { trees.splice(0).forEach(tree => tree.unmount()); });
-  queryClient.clear(); globalThis.fetch = previousFetch; env.useMockApi = originalMockMode; jest.restoreAllMocks();
+  queryClient.clear();
+  globalThis.fetch = previousFetch;
+  env.useMockApi = originalMockMode;
+  jest.restoreAllMocks();
 });
 
-test('same preview re-login returns to existing Map and removes auth/back entries', async () => {
-  useAuthStore.getState().setSession(preview);
-  const nav = stack(true, true); nav.push('Community'); nav.push('Login'); nav.push('KakaoLogin');
-  const tree = await mount(nav.navigation); await sendCode(tree);
-  expect(nav.names()).toEqual(['Map']); expect(nav.state().index).toBe(0);
-  expect(mockStackMounts).toBe(1); expect(useSessionStore.getState().user).toBeNull();
-});
-
-test('same preview re-login keeps unfinished Preference as the sole root', async () => {
-  usePreferenceStore.setState({ isCompleted: false }); useAuthStore.getState().setSession(preview);
-  const nav = stack(true, false); nav.push('Login'); nav.push('KakaoLogin');
-  const tree = await mount(nav.navigation); await sendCode(tree);
-  expect(nav.names()).toEqual(['Preference']); expect(nav.state().index).toBe(0);
-  expect(usePreferenceStore.getState().isCompleted).toBe(false);
-});
-
-test('same service branch returns to existing Map after actual service mutation success', async () => {
-  env.useMockApi = false; serviceTransport(); useAuthStore.getState().setSession(service);
-  const nav = stack(true, true); nav.push('Login'); nav.push('KakaoLogin');
-  const tree = await mount(nav.navigation); await sendCode(tree);
-  expect(nav.names()).toEqual(['Map']); expect(nav.state().index).toBe(0);
-  expect(mockStackMounts).toBe(1); expect(useSessionStore.getState().user?.id).toBe('42');
-});
-
-test.each(['preview','service'] as const)('fresh guest -> %s leaves branch replacement authoritative', async mode => {
-  env.useMockApi = mode === 'preview'; if (mode === 'service') serviceTransport();
+test.each(['preview', 'service'] as const)('one fresh %s login opens first preferences on the existing navigator', async mode => {
+  env.useMockApi = mode === 'preview';
+  if (mode === 'service') serviceTransport();
   usePreferenceStore.setState({ isCompleted: false });
-  const nav = stack(false, false); nav.push('KakaoLogin');
-  const actionsBefore = nav.actions.length;
-  const tree = await mount(nav.navigation); await sendCode(tree);
-  expect(mockStackMounts).toBe(2); expect(nav.actions).toHaveLength(actionsBefore);
-  const registered = tree.root.findAll(node => typeof node.props.name === 'string').map(node => node.props.name);
-  expect(registered[0]).toBe('Preference');
+  const { tree, nav, names } = await mount();
+  expect(names()).toEqual(['Login']);
+  await act(() => nav.navigate('KakaoLogin'));
+  await sendCode(tree, true);
+  expect(names()).toEqual(['Preference']);
+  expect(mockStackMounts).toBe(1);
+  expect(usePreferenceStore.getState().isCompleted).toBe(false);
+  if (mode === 'service') expect(globalThis.fetch).toHaveBeenCalledTimes(1);
 });
 
-test('preview -> service branch reset is not given stale old-stack completion', async () => {
-  useAuthStore.getState().setSession(preview); env.useMockApi = false; serviceTransport();
-  const nav = stack(true, true); nav.push('Login'); nav.push('KakaoLogin');
-  const actionsBefore = nav.actions.length;
-  const tree = await mount(nav.navigation); await sendCode(tree);
-  expect(mockStackMounts).toBe(2); expect(nav.actions).toHaveLength(actionsBefore);
-  expect(useSessionStore.getState().user?.id).toBe('42');
+test('preference skip on the existing navigator continues to Map', async () => {
+  usePreferenceStore.setState({ isCompleted: false });
+  const { tree, nav, names } = await mount();
+  await act(() => nav.navigate('KakaoLogin'));
+  await sendCode(tree);
+  let skip: Renderer.ReactTestInstance | null = tree.root.findAll(node => node.props.children === '건너뛰기')[0] ?? null;
+  while (skip && typeof skip.props.onPress !== 'function') skip = skip.parent;
+  await act(() => skip!.props.onPress());
+  expect(names()).toEqual(['Map']);
+  expect(usePreferenceStore.getState()).toMatchObject({ isCompleted: true, preferences: null });
+  expect(mockStackMounts).toBe(1);
 });
 
-test('failed login keeps original back/error behavior and a new attempt can succeed', async () => {
-  env.useMockApi = false; serviceTransport(false); useAuthStore.getState().setSession(service);
-  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  const nav = stack(true, true); nav.push('Login'); nav.push('KakaoLogin');
-  const first = await mount(nav.navigation); await sendCode(first);
-  expect(nav.names()).toEqual(['Map','Login']); expect(alert).toHaveBeenCalledWith('로그인 실패','fixture login failed');
-  expect(useAuthStore.getState().accessToken).toBe(service.accessToken);
-  await act(() => first.unmount()); trees.splice(trees.indexOf(first),1);
-  serviceTransport(true); nav.push('KakaoLogin');
-  const retry = await mount(nav.navigation); await sendCode(retry);
-  expect(nav.names()).toEqual(['Map']); expect(nav.state().index).toBe(0);
+test('a completed setup is retained on fresh login and logout restores the guest root', async () => {
+  const preferences = { brands: ['콜드브루'], size: 'Large', orderMethod: '매장 이용', cafeType: '', tastes: [] };
+  usePreferenceStore.setState({ preferences });
+  const { tree, nav, names } = await mount();
+  await act(() => nav.navigate('KakaoLogin'));
+  await sendCode(tree);
+  expect(names()).toEqual(['Map']);
+  expect(usePreferenceStore.getState().preferences).toEqual(preferences);
+  await act(() => useAuthStore.getState().logout());
+  expect(names()).toEqual(['Login']);
+  expect(mockStackMounts).toBe(1);
 });
 
-test('registered but absent root resets without duplicate or back-to-login history', async () => {
+test.each(['preview', 'service'] as const)('successful same-mode %s login removes stale login routes', async mode => {
+  env.useMockApi = mode === 'preview';
+  if (mode === 'service') serviceTransport();
+  useAuthStore.getState().setSession(mode === 'preview' ? preview : service);
+  const { tree, nav, names } = await mount();
+  await act(() => nav.navigate('Community'));
+  await act(() => nav.navigate('Login'));
+  await act(() => nav.navigate('KakaoLogin'));
+  await sendCode(tree);
+  expect(names()).toEqual(['Map']);
+  expect(mockStackMounts).toBe(1);
+  expect(useSessionStore.getState().user?.id).toBe(mode === 'service' ? '42' : undefined);
+});
+
+test('same-mode login returns to unfinished preference setup', async () => {
+  usePreferenceStore.setState({ isCompleted: false });
   useAuthStore.getState().setSession(preview);
-  const nav = stack(true, true, 'Login'); nav.push('KakaoLogin');
-  const tree = await mount(nav.navigation); await sendCode(tree);
-  expect(nav.names()).toEqual(['Map']); expect(nav.state().index).toBe(0);
+  const { tree, nav, names } = await mount();
+  await act(() => nav.navigate('Login'));
+  await act(() => nav.navigate('KakaoLogin'));
+  await sendCode(tree);
+  expect(names()).toEqual(['Preference']);
+  expect(mockStackMounts).toBe(1);
 });
 
-test('real login resumes the requested community destination once after the navigator changes branch', async () => {
+test('service login opens a requested review destination once on the existing navigator', async () => {
   useAuthStore.getState().setSession(preview);
   env.useMockApi = false;
   serviceTransport();
-  const nav = stack(true, true);
-  nav.push('Login');
-  nav.push('KakaoLogin');
-  const target = { name: 'ReviewWrite', params: { cafeId: 'cafe-42' } };
-  const tree = await mount(nav.navigation, { returnTo: target });
+  const { tree, nav, names } = await mount();
+  await act(() => nav.navigate('KakaoLogin', { returnTo: { name: 'ReviewWrite', params: { cafeId: 'cafe-42' } } }));
   await sendCode(tree);
-  expect(mockStackMounts).toBe(2);
-  const map = tree.root.findAll(node => node.props.name === 'Map')[0];
-  const navigate = jest.fn();
-  await act(() => {
-    const listeners = map.props.listeners?.({ navigation: { navigate } });
-    listeners?.focus();
-    listeners?.focus();
-  });
-  expect(navigate).toHaveBeenCalledTimes(1);
-  expect(navigate).toHaveBeenCalledWith(target);
+  expect(names()).toEqual(['Map', 'ReviewWrite']);
+  expect(nav.getCurrentRoute()?.params).toEqual({ cafeId: 'cafe-42' });
+  expect(mockStackMounts).toBe(1);
+  expect(useAuthStore.getState().loginReturn).toBeNull();
   const request = jest.mocked(globalThis.fetch).mock.calls[0][1];
   expect(JSON.parse(String(request?.body))).toEqual({
     code: 'fixture-code', redirectUri: env.kakaoRedirectUri,
   });
 });
 
+test('failed login returns to Login, retains the session, and permits a successful retry', async () => {
+  env.useMockApi = false;
+  serviceTransport(false);
+  useAuthStore.getState().setSession(service);
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  const { tree, nav, names } = await mount();
+  await act(() => nav.navigate('Login'));
+  await act(() => nav.navigate('KakaoLogin'));
+  await sendCode(tree);
+  expect(names()).toEqual(['Map', 'Login']);
+  expect(alert).toHaveBeenCalledWith('로그인 실패', 'fixture login failed');
+  expect(useAuthStore.getState().accessToken).toBe(service.accessToken);
+  serviceTransport();
+  await act(() => nav.navigate('KakaoLogin'));
+  await sendCode(tree);
+  expect(names()).toEqual(['Map']);
+});
+
 test('a malformed callback reports login failure without throwing out of the WebView handler', async () => {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  const nav = stack(false, false);
-  nav.push('KakaoLogin');
-  const tree = await mount(nav.navigation);
-  const web = tree.root.findAll(node => typeof node.props.source?.uri === 'string')[0];
-  expect(() => web.props.onShouldStartLoadWithRequest({
-    url: `${env.kakaoRedirectUri}?code=%`,
-  })).not.toThrow();
+  const { tree, nav, names } = await mount();
+  await act(() => nav.navigate('KakaoLogin'));
+  await act(() => {
+    expect(() => webView(tree).props.onShouldStartLoadWithRequest({
+      url: `${env.kakaoRedirectUri}?code=%`,
+    })).not.toThrow();
+  });
   expect(alert).toHaveBeenCalledWith('로그인 실패', expect.any(String));
-  expect(nav.names()).toEqual(['Login']);
+  expect(names()).toEqual(['Login']);
 });

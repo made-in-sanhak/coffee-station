@@ -135,8 +135,7 @@ export default function CommunityScreen({
     const destination = tab === 'reviews'
       ? { name: 'ReviewWrite' as const, params: cafeId ? { cafeId } : undefined }
       : { name: 'MeetupCreate' as const, params: undefined };
-    if (!token) requestCommunityLogin(navigation, destination, setError);
-    else navigation.navigate(destination);
+    navigation.navigate(destination);
   };
   const toggleNearby = async () => {
     if (locating) return;

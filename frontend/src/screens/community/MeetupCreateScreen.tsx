@@ -6,6 +6,7 @@ import type { Cafe, Meetup } from '../../app/domain';
 import { Button, Card, Chip, Empty, Field, Notice, Screen, tokens } from '../../app/ui';
 import type { RootStackScreenProps } from '../../navigation/types';
 import { useSessionStore } from '../../store/sessionStore';
+import { env } from '../../utils/env';
 import { SocialText as Text, socialStyles as s } from './SocialParts';
 import { requestCommunityLogin } from './communityLogin';
 import {
@@ -20,6 +21,7 @@ export default function MeetupCreateScreen({
 }: RootStackScreenProps<'MeetupCreate'>) {
   const queryClient = useQueryClient();
   const token = useSessionStore(state => state.accessToken);
+  const preview = env.useMockApi && !token;
   const [draft, setDraft] = useState(initialMeetupDraft);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -149,11 +151,13 @@ export default function MeetupCreateScreen({
         처음 만나는 사람과는 카페 같은 공개된 장소에서 만나요. 음료는 각자
         주문해 주세요.
       </Notice>
+      {preview && <Notice>게시하려면 서비스에 연결해야 해요.</Notice>}
       {error && <Notice>{error}</Notice>}
       <Button
-        label={token ? '모임 만들기' : '로그인하고 모임 만들기'}
+        label={token || preview ? '모임 만들기' : '로그인하고 모임 만들기'}
         onPress={submit}
         loading={saving}
+        disabled={preview}
       />
     </Screen>
   );

@@ -2,9 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Button, Chip, Notice, Screen, tokens } from '../../app/ui';
 import { native } from '../../app/native';
-import type { RecommendationRequest } from '../../app/domain';
+import {
+  DEFAULT_PREFERENCES,
+  type RecommendationRequest,
+} from '../../app/domain';
 import type { RootStackScreenProps } from '../../navigation/types';
-import { usePersonalStore } from '../../store/personalStore';
 import {
   PageTitle,
   SocialIcon,
@@ -14,20 +16,26 @@ import { makeRecommendationRequest } from './recommendModel';
 
 const purposes = ['테이크아웃', '공부·작업', '대화', '드라이브스루'];
 const tastes = ['산미 적은', '고소한', '달달한', '디카페인', '우유 들어간'];
+const defaultTravel = {
+  travelMode: DEFAULT_PREFERENCES.travelMode,
+  travelMinutes: DEFAULT_PREFERENCES.travelMinutes,
+};
+type RecommendationDraft = Pick<
+  RecommendationRequest,
+  'purposes' | 'tastes' | 'query'
+> & {
+  budget?: RecommendationRequest['budget'];
+  travel?: Pick<RecommendationRequest, 'travelMode' | 'travelMinutes'>;
+};
 
 export default function RecommendScreen({
   navigation,
 }: RootStackScreenProps<'Recommend'>) {
-  const preferences = usePersonalStore(state => state.preferences);
-  const onboarded = usePersonalStore(state => state.onboarded);
-  const [request, setRequest] = useState<RecommendationRequest>(() => ({
-    budget: onboarded ? preferences.priceMax : 5000,
+  const [request, setRequest] = useState<RecommendationDraft>({
     purposes: [],
     tastes: [],
-    travelMinutes: preferences.travelMinutes,
-    travelMode: preferences.travelMode,
     query: '',
-  }));
+  });
   const [locating, setLocating] = useState(false);
   const [listening, setListening] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
@@ -91,8 +99,14 @@ export default function RecommendScreen({
     if (!mounted.current) return;
     setLocating(false);
     if (navigation.isFocused?.() === false) return;
+    const { budget, travel, ...criteria } = request;
     navigation.navigate('RecommendationResult', {
-      request: makeRecommendationRequest({ ...request, ...location }),
+      request: makeRecommendationRequest({
+        ...criteria,
+        budget: budget ?? null,
+        ...(travel ?? defaultTravel),
+        ...location,
+      }),
     });
   };
 
@@ -196,19 +210,28 @@ export default function RecommendScreen({
               key={item.label}
               label={item.label}
               selected={
-                request.travelMode === item.mode &&
-                request.travelMinutes === item.minutes
+                request.travel?.travelMode === item.mode &&
+                request.travel.travelMinutes === item.minutes
               }
               onPress={() =>
                 setRequest(previous => ({
                   ...previous,
-                  travelMode: item.mode,
-                  travelMinutes: item.minutes,
+                  travel: {
+                    travelMode: item.mode,
+                    travelMinutes: item.minutes,
+                  },
                 }))
               }
             />
           ))}
         </View>
+        {request.travel ? null : (
+          <Text style={styles.travelHint}>
+            선택하지 않으면{' '}
+            {defaultTravel.travelMode === 'walk' ? '도보' : '차로'}{' '}
+            {defaultTravel.travelMinutes}분을 기준으로 찾아요.
+          </Text>
+        )}
       </View>
       <View style={styles.spacer} />
       <Button
@@ -251,5 +274,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  travelHint: { color: tokens.muted, fontSize: 12, lineHeight: 18 },
   spacer: { flexGrow: 1, minHeight: 2 },
 });

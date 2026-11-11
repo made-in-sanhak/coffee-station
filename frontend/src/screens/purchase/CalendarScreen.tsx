@@ -229,6 +229,11 @@ export default function CalendarScreen({
             </Pressable>
           </View>
         </View>
+        <Button
+          label="나의 커피 취향 수정"
+          variant="outline"
+          onPress={() => navigation.navigate('Preferences')}
+        />
         <View style={s.stats}>
           <View style={s.stat}>
             <Text style={s.small}>이번 달 지출</Text>
@@ -370,30 +375,6 @@ export default function CalendarScreen({
               </Pressable>
             ))
           )}
-          <View style={s.gap6}>
-            <View style={s.between}>
-              <View style={[s.row, s.gap4]}>
-                <RewardAsset name="zapSmall" />
-                <Text style={s.muted}>
-                  {selectedKey === localDateKey(now)
-                    ? '오늘 카페인'
-                    : '이날 카페인'}
-                  {unknown ? ' · 미등록 포함' : ''}
-                </Text>
-              </View>
-              <Text style={[s.small, s.bold, { color: c.brown }]}>
-                {caffeine} / 400mg
-              </Text>
-            </View>
-            <View style={st.caffeineTrack}>
-              <View
-                style={[
-                  st.caffeineProgress,
-                  { width: `${Math.min((caffeine / 400) * 100, 100)}%` },
-                ]}
-              />
-            </View>
-          </View>
         </View>
         {(error || resource.error) && (
           <Text accessibilityRole="alert" style={s.error}>
@@ -470,11 +451,4 @@ const st = StyleSheet.create({
   },
   selected: { backgroundColor: c.green },
   selectedText: { color: c.white, fontWeight: '700' },
-  caffeineTrack: {
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
-    backgroundColor: c.card,
-  },
-  caffeineProgress: { height: 8, borderRadius: 4, backgroundColor: c.brown },
 });

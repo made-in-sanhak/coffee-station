@@ -22,6 +22,7 @@ import {
 } from './SocialParts';
 import { makeReviewInput, readableError } from './socialModel';
 import { native, type PickedImage } from '../../app/native';
+import { env } from '../../utils/env';
 import { MAX_REVIEW_IMAGES, reviewPhotoInput } from './reviewImages';
 import { requestCommunityLogin } from './communityLogin';
 
@@ -31,6 +32,7 @@ export default function ReviewWriteScreen({
 }: RootStackScreenProps<'ReviewWrite'>) {
   const queryClient = useQueryClient();
   const token = useSessionStore(state => state.accessToken);
+  const preview = env.useMockApi && !token;
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Cafe | null>(null);
   const [rating, setRating] = useState(5);
@@ -189,12 +191,13 @@ export default function ReviewWriteScreen({
       </View>}
       <Text style={s.tiny}>JPEG·PNG 사진을 최대 3장, 한 장당 2MB까지 첨부할 수 있습니다.</Text>
       <Notice>직접 경험한 커피 맛과 공간의 특징을 남겨 주세요.</Notice>
+      {preview && <Notice>게시하려면 서비스에 연결해야 해요.</Notice>}
       {error && <Notice>{error}</Notice>}
       <Button
-        label={token ? '리뷰 등록' : '로그인하고 리뷰 쓰기'}
+        label={token || preview ? '리뷰 등록' : '로그인하고 리뷰 쓰기'}
         onPress={submit}
         loading={saving}
-        disabled={picking}
+        disabled={picking || preview}
       />
     </Screen>
   );

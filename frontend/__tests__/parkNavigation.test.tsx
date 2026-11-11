@@ -9,6 +9,7 @@ import { usePreferenceStore } from '../src/store/preferenceStore';
 jest.mock('@react-navigation/native-stack', () => ({
   createNativeStackNavigator: () => ({
     Navigator: ({ children }: { children: React.ReactNode }) => children,
+    Group: ({ children }: { children: React.ReactNode }) => children,
     Screen: () => null,
   }),
 }));

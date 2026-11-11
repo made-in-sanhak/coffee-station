@@ -11,7 +11,6 @@ import ParkPreferencesRoute from '../integration/ParkPreferencesRoute';
 import NotificationScreen from '../screens/map/NotificationScreen';
 import { useAuthStore } from '../store/authStore';
 import { usePreferenceStore } from '../store/preferenceStore';
-import { useSessionStore } from '../store/sessionStore';
 import SettingsScreen from '../screens/settings/SettingsScreen';
 import LocationPermissionScreen from '../screens/onboarding/LocationPermissionScreen';
 import CafeDetailScreen from '../screens/cafe/CafeDetailScreen';
@@ -39,20 +38,19 @@ import EventsScreen from '../screens/events/EventsScreen';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function RootNavigator() {
   const isLoggedIn = useAuthStore(state => state.accessToken !== null);
-  const serviceUser = useSessionStore(state => state.user);
+  const sessionRevision = useAuthStore(state => state.sessionRevision);
   const isCompleted = usePreferenceStore(state => state.isCompleted);
   const hasHydrated = usePreferenceStore(state => state.hasHydrated);
   const completeSetup = usePreferenceStore(state => state.completeSetup);
   if (!hasHydrated) return null;
   return (
     <Stack.Navigator
-      key={isLoggedIn ? (serviceUser ? 'service' : 'preview') : 'guest'}
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: tokens.bg },
       }}
     >
-      {isLoggedIn ? <>
+      {isLoggedIn && <Stack.Group navigationKey={`app-${sessionRevision}`}>
         {!isCompleted && <Stack.Screen name="Preference">
           {({ navigation }) => <PreferenceScreen
             onSkip={() => { completeSetup(null); navigation.replace('Map'); }}
@@ -104,12 +102,11 @@ export default function RootNavigator() {
       <Stack.Screen name="OrderComplete" component={OrderCompleteScreen} />
       <Stack.Screen name="PaymentFailure" component={PaymentFailureScreen} />
       <Stack.Screen name="Events" component={EventsScreen} />
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="KakaoLogin" component={KakaoLoginScreen} options={{ headerShown: true, title: '카카오 로그인' }} />
-      </> : <>
+      </Stack.Group>}
+      <Stack.Group navigationKey={isLoggedIn ? `auth-${sessionRevision}` : 'guest'}>
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="KakaoLogin" component={KakaoLoginScreen} options={{ headerShown: true, title: '카카오 로그인' }} />
-      </>}
+      </Stack.Group>
     </Stack.Navigator>
   );
 }

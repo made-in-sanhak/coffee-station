@@ -117,27 +117,51 @@ test('nearby meetup filtering requests location only on demand and passes a real
   await act(() => tree.unmount());
 });
 
-test('preview review and meetup actions explain the service boundary without reopening login', async () => {
+test('preview review and meetup actions open their forms without reopening login', async () => {
   env.useMockApi = true;
   useSessionStore.setState({ accessToken: null, user: null });
-  for (const [tab, label] of [['reviews', '커피 리뷰 쓰기'], ['meetups', '모임 만들기']]) {
+  for (const [tab, label, name] of [
+    ['reviews', '커피 리뷰 쓰기', 'ReviewWrite'],
+    ['meetups', '모임 만들기', 'MeetupCreate'],
+  ]) {
     const { tree, navigation } = await mount(CommunityScreen, { tab });
     await act(() => button(tree, label).props.onPress());
-    expect(navigation.navigate).not.toHaveBeenCalled();
+    expect(navigation.navigate).toHaveBeenCalledWith({ name, params: undefined });
     expect(api.post).not.toHaveBeenCalled();
-    expect(JSON.stringify(tree.toJSON())).toContain('미리보기');
     await act(() => tree.unmount());
   }
 });
 
-test('service login retains the requested meetup composer destination', async () => {
+test('preview meetup can be edited and explains why it cannot be posted', async () => {
+  env.useMockApi = true;
+  useSessionStore.setState({ accessToken: null, user: null });
+  const { tree, navigation } = await mount(MeetupCreateScreen);
+  const title = tree.root.findAll(node =>
+    node.props.label === '모임 제목' && typeof node.props.onChangeText === 'function',
+  )[0];
+  await act(() => title.props.onChangeText('함께 커피 마셔요'));
+  expect(JSON.stringify(tree.toJSON())).toContain('함께 커피 마셔요');
+  expect(JSON.stringify(tree.toJSON())).toContain('게시하려면 서비스에 연결해야 해요.');
+  const submit = button(tree, '모임 만들기');
+  expect(submit.props.accessibilityState.disabled).toBe(true);
+  expect(navigation.navigate).not.toHaveBeenCalled();
+  expect(api.post).not.toHaveBeenCalled();
+  await act(() => tree.unmount());
+});
+
+test('service login starts only on submission and retains the meetup destination', async () => {
   env.useMockApi = false;
   useSessionStore.setState({ accessToken: null, user: null });
   const { tree, navigation } = await mount(CommunityScreen, { tab: 'meetups' });
   await act(() => button(tree, '모임 만들기').props.onPress());
-  expect(navigation.navigate).toHaveBeenCalledWith('Login', {
+  expect(navigation.navigate).toHaveBeenCalledWith({ name: 'MeetupCreate', params: undefined });
+  await act(() => tree.unmount());
+
+  const composer = await mount(MeetupCreateScreen);
+  await act(() => button(composer.tree, '로그인하고 모임 만들기').props.onPress());
+  expect(composer.navigation.navigate).toHaveBeenCalledWith('Login', {
     returnTo: { name: 'MeetupCreate', params: undefined },
   });
   expect(api.post).not.toHaveBeenCalled();
-  await act(() => tree.unmount());
+  await act(() => composer.tree.unmount());
 });

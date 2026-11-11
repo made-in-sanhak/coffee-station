@@ -30,8 +30,8 @@ export default function LoginScreen({
   const handleKakaoLogin = () => {
     if (!env.kakaoRestApiKey) {
       Alert.alert(
-        '카카오 키가 없습니다',
-        '루트 .env 에 KAKAO_REST_API_KEY 를 넣고 Metro 를 다시 시작해 주세요.',
+        '카카오 로그인 연결 오류',
+        '카카오 로그인을 시작할 수 없습니다.',
       );
       return;
     }

@@ -429,7 +429,7 @@ export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
                       {response.loading
                         ? '주변 카페를 찾고 있습니다.'
                         : !hasMapKey
-                        ? '설정에서 지도 JavaScript 키를 입력해 주세요.'
+                        ? '주변 카페를 자동으로 불러올 수 없습니다. 카페 이름으로 검색해 주세요.'
                         : driveThrough || openOnly || priceLimit
                         ? '선택한 조건이 확인된 카페가 없습니다.'
                         : '주변 카페가 조회되면 여기에 표시됩니다.'}

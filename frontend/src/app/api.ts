@@ -47,7 +47,7 @@ export function useResource<T>(path: string, query?: Query, enabled = true) {
     data: result.data,
     loading: enabled && !!baseUrl && result.isPending,
     error: !baseUrl
-      ? '서버가 연결되지 않았습니다. 설정에서 서버 주소를 입력해 주세요.'
+      ? '서비스 서버에 연결할 수 없습니다.'
       : result.error instanceof Error
       ? result.error.message
       : null,

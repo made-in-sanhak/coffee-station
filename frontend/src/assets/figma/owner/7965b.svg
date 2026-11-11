@@ -1,0 +1,11 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="loader" clip-path="url(#clip0_0_29)">
+<path id="loader_2" d="M69 36C69 54.2254 54.2254 69 36 69C17.7746 69 3 54.2254 3 36C3 17.7746 17.7746 3 36 3C54.2254 3 69 17.7746 69 36Z" stroke-width="6" stroke="#EAE3D9"/>
+<path id="loader-arc" d="M36 3C40.7702 3 45.4837 4.03418 49.8158 6.03127C54.1478 8.02837 57.9954 10.9409 61.0934 14.5682C64.1914 18.1955 66.4662 22.4513 67.761 27.0425C69.0559 31.6336 69.3399 36.4508 68.5937 41.1623C67.8475 45.8738 66.0887 50.3675 63.4385 54.3338C60.7883 58.3001 57.3097 61.6447 53.2425 64.1371C49.1752 66.6296 44.6159 68.2106 39.8787 68.7713C35.1416 69.3319 30.3392 68.8589 25.8024 67.3849" stroke-width="6" stroke-linecap="round" stroke="#FEE500"/>
+</g>
+<defs>
+<clipPath id="clip0_0_29">
+<rect width="72" height="72" fill="white"/>
+</clipPath>
+</defs>
+</svg>

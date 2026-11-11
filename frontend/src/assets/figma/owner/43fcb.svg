@@ -1,0 +1,9 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="coffee" opacity="0.25">
+<path id="Vector" d="M85 40H90C95.3043 40 100.391 42.1071 104.142 45.8579C107.893 49.6086 110 54.6957 110 60C110 65.3043 107.893 70.3914 104.142 74.1421C100.391 77.8929 95.3043 80 90 80H85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="white"/>
+<path id="Vector_2" d="M15 40H85V85C85 90.3043 82.8929 95.3914 79.1421 99.1421C75.3914 102.893 70.3043 105 65 105H35C29.6957 105 24.6086 102.893 20.8579 99.1421C17.1071 95.3914 15 90.3043 15 85V40Z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="white"/>
+<path id="Vector_3" d="M30 10V20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="white"/>
+<path id="Vector_4" d="M50 10V20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="white"/>
+<path id="Vector_5" d="M70 10V20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="white"/>
+</g>
+</svg>

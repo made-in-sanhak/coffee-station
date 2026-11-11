@@ -1,0 +1,8 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="store">
+<path id="Vector" d="M3 9L4.5 4H19.5L21 9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="#1F5A3E"/>
+<path id="Vector_2" d="M3 9H21V10C21 10.7956 20.6839 11.5587 20.1213 12.1213C19.5587 12.6839 18.7956 13 18 13C17.2044 13 16.4413 12.6839 15.8787 12.1213C15.3161 11.5587 15 10.7956 15 10C15 10.7956 14.6839 11.5587 14.1213 12.1213C13.5587 12.6839 12.7956 13 12 13C11.2044 13 10.4413 12.6839 9.87868 12.1213C9.31607 11.5587 9 10.7956 9 10C9 10.7956 8.68393 11.5587 8.12132 12.1213C7.55871 12.6839 6.79565 13 6 13C5.20435 13 4.44129 12.6839 3.87868 12.1213C3.31607 11.5587 3 10.7956 3 10V9Z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="#1F5A3E"/>
+<path id="Vector_3" d="M5 13V21H19V13" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="#1F5A3E"/>
+<path id="Vector_4" d="M10 21V16H14V21" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="#1F5A3E"/>
+</g>
+</svg>

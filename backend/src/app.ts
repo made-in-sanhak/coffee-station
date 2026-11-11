@@ -3,6 +3,7 @@ import cors from 'cors';
 import healthRouter from './routes/health';
 import recommendationsRouter from './modules/recommendations/router';
 import reviewSummariesRouter from './modules/reviewSummaries/router';
+import cafesRouter from './modules/cafes/router';
 import { errorHandler, notFound } from './middlewares/errorHandler';
 
 export const app = express();
@@ -17,6 +18,7 @@ app.use(express.json({ limit: '1mb' }));
 app.use('/health', healthRouter);
 app.use('/api/recommendations', recommendationsRouter);
 app.use('/api/cafes', reviewSummariesRouter);
+app.use('/api/cafes', cafesRouter);
 // 기능 라우터는 여기에 추가합니다. 예)
 // app.use('/api/cafes', cafeRouter);
 

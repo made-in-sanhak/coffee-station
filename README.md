@@ -50,7 +50,7 @@ backend/             Express API, 추천 서비스·테스트, 행신 staging SQ
 frontend/            React Native 앱과 화면
 ai-jobs/           Python 리뷰 작업·저장소·테스트, 모의/자료 검증 노트북
 infra/               로컬 MySQL과 Express 운영 Compose
-backend/sql/haengsin/ 승인된 행신 비교 자료 (현재 판매 추천 아님)
+backend/sql/staging/haengsin/ 승인된 행신 비교 자료 (현재 판매 추천 아님)
 docs/                추천·리뷰 분석·개발 계획·배포·API 안내
 ```
 

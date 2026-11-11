@@ -39,7 +39,7 @@ QuotaStore는 제공자 시도 직전 원자적 예약 후 finally 해제하는 
 
 ### SQL 데이터 계약
 
-MySQLMenuRepository는 주입형 select(sql, parameters)를 사용한다. 매장 1~100개와 가격/분류/LIMIT을 바인딩하고 STORE/ON_SALE·비DEMO·검증일 존재·0 이상 가격을 조회한다. 가격/price_id 순으로 정렬하고 문자열 BIGINT ID, 메뉴 ID, 사이즈·옵션·출처·검증일을 보존한다. DB 오류/손상 행은 503, 정상 빈 결과는 QUESTION이다. 검증일 존재가 최신 가격 보장은 아니다. 실제 스키마 대조, 풀 execute 연결/종료·쿼리 제한, 읽기 전용 계정·TLS·검증일 신선도와 주변 매장 검색이 남아 있다. [행신 자료](../backend/sql/haengsin/README.md)는 staging 비교용으로 분리한다.
+MySQLMenuRepository는 주입형 select(sql, parameters)를 사용한다. 매장 1~100개와 가격/분류/LIMIT을 바인딩하고 STORE/ON_SALE·비DEMO·검증일 존재·0 이상 가격을 조회한다. 가격/price_id 순으로 정렬하고 문자열 BIGINT ID, 메뉴 ID, 사이즈·옵션·출처·검증일을 보존한다. DB 오류/손상 행은 503, 정상 빈 결과는 QUESTION이다. 검증일 존재가 최신 가격 보장은 아니다. 실제 스키마 대조, 풀 execute 연결/종료·쿼리 제한, 읽기 전용 계정·TLS·검증일 신선도와 주변 매장 검색이 남아 있다. [행신 자료](../backend/sql/staging/haengsin/README.md)는 staging 비교용으로 분리한다.
 
 ### 모의 거리 흐름
 

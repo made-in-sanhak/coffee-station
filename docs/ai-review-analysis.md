@@ -7,7 +7,7 @@
 - [review_job.py](../ai-jobs/app/review_job.py)는 `MockAnalysisRepository`의 리뷰 snapshot을 읽어 `MockReviewModel`의 분석·재조회 행동을 제한된 횟수와 시간 안에 처리한다. 저장소는 revision과 입력 해시를 확인하고 원문에 있는 인용만 게시한다. 결과는 `READY`, `BUSY`, `TIMEOUT`, `LIMIT_REACHED`, `FAILED` 중 하나다. 프로세스 로컬 잠금·메모리 저장소이므로 운영용 분산 작업이 아니다.
 - [export_mock_review_summary.py](../ai-jobs/scripts/export_mock_review_summary.py)는 별도의 `review_summary.py` 모의 발췌 결과를 `backend/artifacts/mock-review-summary.json`에 원자적으로 쓴다. Express의 모의 리뷰 조회가 이 파일을 읽는다. `review_job.py`의 분석 저장소와 이 파일 경로는 아직 연결되지 않았다. 요약은 규칙 기반이며 실제 종합 LLM 요약이 아니다.
 
-`repositories/reviews.py`는 리뷰 조회 계약과 MySQL 주입형 구현이다. `repositories/haengsin.py`와 `notebooks/real_data_ready.ipynb`는 승인된 행신 가격 자료 검증용이며 일반 리뷰 작업이나 현재 추천에 연결되지 않는다. 노트북의 DB 실행 기본값은 `False`다. 원본·staging 자료는 [행신 자료 설명](../backend/sql/haengsin/README.md)에 남겼다.
+`repositories/reviews.py`는 리뷰 조회 계약과 MySQL 주입형 구현이다. `repositories/haengsin.py`와 `notebooks/real_data_ready.ipynb`는 승인된 행신 가격 자료 검증용이며 일반 리뷰 작업이나 현재 추천에 연결되지 않는다. 노트북의 DB 실행 기본값은 `False`다. 원본·staging 자료는 [행신 자료 설명](../backend/sql/staging/haengsin/README.md)에 남겼다.
 
 ## 실행 및 검증
 

@@ -8,7 +8,7 @@ test('production startup blocks recommendation and mock review routes',()=>{
  const server=app.listen(0,'127.0.0.1',async()=>{
   try {
    const origin='http://127.0.0.1:'+server.address().port;
-   for(const route of ['/prepare','/confirm','/']) assert.equal((await fetch(origin+'/api/recommendations'+route,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).status,503);
+   for(const route of ['/prepare','/confirm','/','/mvp/prepare','/mvp/confirm','/mvp/search']) assert.equal((await fetch(origin+'/api/recommendations'+route,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).status,503);
    assert.equal((await fetch(origin+'/api/cafes/990001/review-summary')).status,503);
   } catch(e){console.error(e);process.exitCode=1;}
   finally {server.closeAllConnections();server.close();}

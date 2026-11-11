@@ -41,7 +41,7 @@ backend/build/
 backend/out/
 !backend/gradle/wrapper/gradle-wrapper.jar
 
-# ===== ai-server / data (Python) =====
+# ===== ai-jobs / data (Python) =====
 __pycache__/
 *.py[cod]
 .venv/
@@ -64,5 +64,6 @@ frontend/ios/build/
 *.log
 # ===== backend (Node.js) =====
 backend/dist/
-ai-server/.cache/
+ai-jobs/.cache/
+ai-jobs/.tmp-test/
 backend/artifacts/

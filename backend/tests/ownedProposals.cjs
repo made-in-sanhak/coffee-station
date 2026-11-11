@@ -1,6 +1,6 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');
 const {createHmac}=require('node:crypto');
-const {createOwnedProposals}=require('../dist/recommendations/ownedProposals');
+const {createOwnedProposals}=require('../dist/modules/recommendations/ownedProposals');
 const key='test-only-proposal-key-32-bytes-long';
 const p={max_price_krw:4000,category:null,sort_by:null,evidence:{max_price_krw:'4000'},unresolved:[]};
 test('owner, cross-instance, restart, expiry and concurrent read confirmations',async()=>{

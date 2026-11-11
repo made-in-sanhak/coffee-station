@@ -1,0 +1,7 @@
+[
+  {"message":"4천 원 이하 아이스 아메리카노 추천해줘.","expected":{"menu_code":"AMERICANO","temperature":"ICE","size":null,"max_price_krw":4000},"unresolved":[]},
+  {"message":"5천 원 미만 따뜻한 카페라떼 추천해줘.","expected":{"menu_code":"CAFE_LATTE","temperature":"HOT","size":null,"max_price_krw":4999},"unresolved":[]},
+  {"message":"커피를 저렴한 순으로 추천해줘.","expected":{"menu_code":null,"temperature":null,"size":null,"max_price_krw":null},"unresolved":[]},
+  {"message":"공부하기 좋고 달지 않은 아메리카노 추천해줘.","expected":{"menu_code":"AMERICANO","temperature":null,"size":null,"max_price_krw":null},"unresolved":["공부하기 좋은 목적 근거 미지원","단맛 근거 미지원"]},
+  {"message":"아메리카노 아니면 라떼, 가까운 곳으로 추천해줘.","expected":{"menu_code":null,"temperature":null,"size":null,"max_price_krw":null},"unresolved":["복수 메뉴 확인 필요","위치·SQL 거리 검색 미연결"]}
+]

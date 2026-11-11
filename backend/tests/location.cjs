@@ -1,7 +1,7 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');
 process.env.NODE_ENV='test';process.env.EXTRACTION_MODE='mock';process.env.PORT='8080';process.env.DB_PORT='3306';
-const {prepare,recommend,conditions,validateConfirmation}=require('../dist/services/recommendations');
-const {distanceMeters}=require('../dist/recommendations/repository');
+const {prepare,recommend,conditions,validateConfirmation}=require('../dist/modules/recommendations/service');
+const {distanceMeters}=require('../dist/modules/recommendations/repository');
 test('missing location can be resolved by preparing again',async()=>{
  const first=await prepare('가까운 커피 추천해줘.');assert.equal(first.status,'NEEDS_CLARIFICATION');
  assert.throws(()=>validateConfirmation(first.proposal_id));

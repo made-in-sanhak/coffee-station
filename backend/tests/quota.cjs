@@ -1,5 +1,5 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');
-const {createQuota,MockQuotaStore}=require('../dist/recommendations/quota');
+const {createQuota,MockQuotaStore}=require('../dist/modules/recommendations/quota');
 const policy={perMinute:2,perDay:3,concurrent:1,leaseMs:30000};
 test('two services share concurrency, minute and daily attempt budgets',async()=>{
  let time=0;const store=new MockQuotaStore(()=>time),a=createQuota(store,policy),b=createQuota(store,policy);

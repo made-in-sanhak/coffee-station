@@ -2,7 +2,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {spawnSync}=require('node:child_process');
 process.env.NODE_ENV='test';process.env.EXTRACTION_MODE='mock';process.env.PORT='8080';process.env.DB_PORT='3306';
-const {prepare}=require('../dist/services/recommendations');
+const {prepare}=require('../dist/modules/recommendations/service');
 const {aiPolicy}=require('../dist/config/aiPolicy');
 test('advertised TTL matches signed expiry and existing defaults',async()=>{
  const before=Date.now();const p=await prepare('4천 원 이하 커피를 저렴한 순으로 추천해줘.');const after=Date.now();

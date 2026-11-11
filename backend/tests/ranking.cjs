@@ -1,6 +1,6 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');
-const {rankCandidates}=require('../dist/recommendations/ranking');
-const {conditions}=require('../dist/recommendations/contracts');
+const {rankCandidates}=require('../dist/modules/recommendations/ranking');
+const {conditions}=require('../dist/modules/recommendations/contracts');
 const item=(id,price,category='COFFEE')=>({cafe:{id,name:id},offer:{id,name:id,category,price_krw:price,evidence:{is_mock:true}},distance_m:100});
 const experiment={order:'relevance',topic:'noise',preferredCategory:'LATTE',weights:{review:1,preference:1},smoothing:3};
 const feature=(id,rev=1)=>({cafeId:id,revision:rev,currentRevision:1,opinions:[{reviewId:'1',topic:'noise',sentiment:'positive'}]});

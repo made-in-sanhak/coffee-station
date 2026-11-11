@@ -1,8 +1,8 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');
 process.env.NODE_ENV='test';process.env.EXTRACTION_MODE='mock';process.env.PORT='8080';process.env.DB_PORT='3306';
-const {MySQLMenuRepository}=require('../dist/recommendations/mysqlRepository');
-const {conditions}=require('../dist/recommendations/contracts');
-const {recommend}=require('../dist/services/recommendations');
+const {MySQLMenuRepository}=require('../dist/modules/recommendations/mysqlRepository');
+const {conditions}=require('../dist/modules/recommendations/contracts');
+const {recommend}=require('../dist/modules/recommendations/service');
 const row={id:'11',cafe_id:'1',menu_id:'2',cafe_name:'테스트 매장',name:'카페라떼',category:'LATTE',size:'M',option_name:'ICE',price_krw:4000,source:'CATALOG',verified_at:'2026-11-09'};
 test('SQL uses bound filters, stable order, limit and preserved options',async()=>{
  const repo=new MySQLMenuRepository(async(sql,args)=>{

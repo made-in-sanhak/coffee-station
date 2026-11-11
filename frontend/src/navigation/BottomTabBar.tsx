@@ -16,7 +16,7 @@ import {
 
 import { colors } from '../utils/theme';
 
-type TabName = '지도' | '추천' | '휴게소' | '내 기록';
+export type TabName = '지도' | '추천' | '휴게소' | '내 기록';
 
 const TABS = [
   { name: '지도' as const, Icon: Map },
@@ -26,13 +26,20 @@ const TABS = [
 ];
 
 interface BottomTabBarProps {
-  activeTab: TabName;
+  activeTab: TabName | undefined;
+  onTabPress?: (tab: TabName) => void;
 }
 
 export default function BottomTabBar({
   activeTab,
+  onTabPress,
 }: BottomTabBarProps) {
   const handleTabPress = (tab: TabName) => {
+    if (onTabPress) {
+      onTabPress(tab);
+      return;
+    }
+
     if (tab === '지도') return;
 
     Alert.alert(
@@ -52,7 +59,8 @@ export default function BottomTabBar({
             key={tab.name}
             style={styles.tab}
             onPress={() => handleTabPress(tab.name)}
-            accessibilityRole="button"
+            accessibilityRole="tab"
+            accessibilityState={{ selected: isActive }}
             accessibilityLabel={tab.name}
           >
             <Icon

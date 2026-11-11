@@ -18,6 +18,8 @@ export function loadSettings(values: NodeJS.ProcessEnv) {
   };
   const nodeEnv = values.NODE_ENV ?? 'development';
   const extractionMode = values.EXTRACTION_MODE ?? 'mock';
+  const catalogMode = values.MVP_CATALOG_MODE ?? 'mock';
+  if (!['mock', 'mysql-seed'].includes(catalogMode)) { throw new Error('Invalid setting: MVP_CATALOG_MODE'); }
   if (!['development', 'test', 'production'].includes(nodeEnv)) { throw new Error('Invalid setting: NODE_ENV'); }
   if (!['mock', 'gemini'].includes(extractionMode)) { throw new Error('Invalid setting: EXTRACTION_MODE'); }
   if (extractionMode === 'gemini' && (!values.GEMINI_API_KEY?.trim() || !/^[a-zA-Z0-9._-]+$/.test(values.GEMINI_MODEL ?? ''))) {
@@ -36,6 +38,7 @@ export function loadSettings(values: NodeJS.ProcessEnv) {
     },
     jwtSecret: values.JWT_SECRET ?? '',
     extractionMode,
+    catalogMode,
     geminiApiKey: values.GEMINI_API_KEY ?? '',
     geminiModel: values.GEMINI_MODEL ?? '',
     reviewSummaryFile: values.MOCK_REVIEW_SUMMARY_FILE ?? path.resolve(__dirname, '../../artifacts/mock-review-summary.json'),

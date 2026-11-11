@@ -2,6 +2,11 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
+def releaseStoreFile = providers.gradleProperty('COFFEE_RELEASE_STORE_FILE').orElse(providers.environmentVariable('COFFEE_RELEASE_STORE_FILE'))
+def releaseStorePassword = providers.gradleProperty('COFFEE_RELEASE_STORE_PASSWORD').orElse(providers.environmentVariable('COFFEE_RELEASE_STORE_PASSWORD'))
+def releaseKeyAlias = providers.gradleProperty('COFFEE_RELEASE_KEY_ALIAS').orElse(providers.environmentVariable('COFFEE_RELEASE_KEY_ALIAS'))
+def releaseKeyPassword = providers.gradleProperty('COFFEE_RELEASE_KEY_PASSWORD').orElse(providers.environmentVariable('COFFEE_RELEASE_KEY_PASSWORD'))
+
 /**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
@@ -82,10 +87,17 @@ android {
         applicationId "com.coffeestation"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        versionCode 6
         versionName "1.0"
+        resValue "string", "app_name", "CoffeeStation"
     }
     signingConfigs {
+        release {
+            if (releaseStoreFile.isPresent()) storeFile file(releaseStoreFile.get())
+            if (releaseStorePassword.isPresent()) storePassword releaseStorePassword.get()
+            if (releaseKeyAlias.isPresent()) keyAlias releaseKeyAlias.get()
+            if (releaseKeyPassword.isPresent()) keyPassword releaseKeyPassword.get()
+        }
         debug {
             storeFile file('debug.keystore')
             storePassword 'android'
@@ -95,15 +107,41 @@ android {
     }
     buildTypes {
         debug {
+            applicationIdSuffix ".dev"
+            versionNameSuffix "-dev"
+            resValue "string", "app_name", "Coffee Station Dev"
             signingConfig signingConfigs.debug
+            manifestPlaceholders = [usesCleartextTraffic: "true"]
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            manifestPlaceholders = [usesCleartextTraffic: "false"]
+            signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
+    }
+}
+
+// Check configuration before any release bundle is generated or signed.
+def validateProductionConfig = tasks.register('validateProductionConfig') {
+    doLast {
+        def config = new groovy.json.JsonSlurper().parse(file('../../config/app-environments.json'))
+        def url
+        try { url = new URI(config.production.apiBaseUrl as String) }
+        catch (Exception ignored) { throw new GradleException('Set a valid production apiBaseUrl in config/app-environments.json.') }
+        if (url.scheme != 'https' || !url.host || url.userInfo || url.query || url.fragment ||
+            url.host in ['localhost', '127.0.0.1', '10.0.2.2', '::1', '[::1]']) {
+            throw new GradleException('Production apiBaseUrl must be a remote HTTPS URL in config/app-environments.json.')
+        }
+        if (![releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword].every { it.isPresent() && !it.get().trim().isEmpty() }) {
+            throw new GradleException('Set all four COFFEE_RELEASE_* signing properties in your user Gradle properties or environment.')
+        }
+        if (!file(releaseStoreFile.get()).isFile()) throw new GradleException('Release keystore file does not exist.')
+    }
+}
+tasks.configureEach { task ->
+    if (task.name in ['preReleaseBuild', 'createBundleReleaseJsAndAssets', 'validateSigningRelease']) {
+        task.dependsOn(validateProductionConfig)
     }
 }
 

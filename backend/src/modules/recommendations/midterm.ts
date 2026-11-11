@@ -77,6 +77,6 @@ export async function recommendMidterm(input: unknown, repository: MidtermReposi
     .map(o => ({ ...o, tags: [o.menu_name,o.temperature,o.size],
       reason: `${o.menu_name} ${o.temperature} ${o.size}, ${o.price_krw}원` + (c.max_price_krw !== null ? `으로 예산 ${c.max_price_krw}원 이하입니다.` : '입니다.') }));
   return { status: recommendations.length ? 'RESULT' : 'QUESTION', data_mode: repository.mode,
-    notice: repository.mode === 'mock' ? '임시 메뉴·가격입니다. 실제 매장 정보가 아닙니다.' : '등록 자료이며 출처와 확인 상태를 확인하세요.',
+    notice: repository.mode === 'mock' ? '임시 메뉴·가격입니다. 실제 매장 정보가 아닙니다.' : 'DB 시연 자료입니다. 브랜드 가격이 포함될 수 있으며 실제 판매·가격 확인일을 보장하지 않습니다.',
     constraints: c, recommendations, llm_calls: 0 };
 }

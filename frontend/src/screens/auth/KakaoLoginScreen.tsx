@@ -6,6 +6,7 @@ import type { RootStackScreenProps } from '../../navigation/types';
 import { env } from '../../utils/env';
 import { buildKakaoAuthorizeUrl, parseKakaoRedirect } from '../../utils/kakaoAuth';
 import { colors } from '../../utils/theme';
+import { createKakaoLoginContinuation } from '../../integration/kakaoLoginContinuation';
 
 // 카카오 로그인 페이지를 WebView 로 띄우고, Redirect URI 로 돌아오는 순간을 가로채
 // 인가 코드를 서버에 넘깁니다. (Redirect URI 페이지 자체는 열지 않습니다)
@@ -29,9 +30,10 @@ export default function KakaoLoginScreen({
     if (!handled.current) {
       handled.current = true;
       if (result.type === 'code') {
+        const completeLogin = createKakaoLoginContinuation(navigation);
         login(
           { code: result.code, redirectUri: env.kakaoRedirectUri },
-          { onError: error => fail(error.message) },
+          { onSuccess: completeLogin, onError: error => fail(error.message) },
         );
       } else {
         fail(result.message);

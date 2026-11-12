@@ -51,6 +51,9 @@ test.each([
   '/api/recommendations/search',
   '/api/recommendations/chat/prepare',
   '/api/recommendations/chat/confirm',
+  '/api/recommendations/mvp/search',
+  '/api/recommendations/mvp/prepare',
+  '/api/recommendations/mvp/confirm',
 ])('development preview can POST %s without mock credentials', async path => {
   useAuthStore.getState().setSession({ ...session, accessToken: 'mock-access-token', refreshToken: 'mock-refresh-token' });
   globalThis.fetch = jest.fn(async (_url: string | URL | Request, options?: RequestInit) => {
@@ -67,6 +70,8 @@ test.each([
 
 test.each([
   ['/api/recommendations/search', 'DELETE'],
+  ['/api/recommendations/mvp/search', 'DELETE'],
+  ['/api/recommendations/mvp/search/extra', 'POST'],
   ['/api/recommendations/search/extra', 'POST'],
   ['/api/recommendations', 'POST'],
   ['/api/orders', 'POST'],
@@ -84,7 +89,8 @@ test('release preview cannot POST any development recommendation endpoint', asyn
   const previous = __DEV__;
   try {
     (globalThis as typeof globalThis & { __DEV__: boolean }).__DEV__ = false;
-    for (const path of ['/api/recommendations/search', '/api/recommendations/chat/prepare', '/api/recommendations/chat/confirm']) {
+    for (const path of ['/api/recommendations/search', '/api/recommendations/chat/prepare', '/api/recommendations/chat/confirm',
+      '/api/recommendations/mvp/search', '/api/recommendations/mvp/prepare', '/api/recommendations/mvp/confirm']) {
       await expect(apiFetch(path, { method: 'POST', body: '{}' })).rejects.toThrow('실제 서비스 로그인');
     }
     expect(globalThis.fetch).not.toHaveBeenCalled();

@@ -35,6 +35,9 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
     '/api/recommendations/search',
     '/api/recommendations/chat/prepare',
     '/api/recommendations/chat/confirm',
+    '/api/recommendations/mvp/search',
+    '/api/recommendations/mvp/prepare',
+    '/api/recommendations/mvp/confirm',
   ].includes(path);
   if (preview && path.startsWith('/api/') &&
       (method !== 'GET' || privateRead) && !developmentRecommendation) {

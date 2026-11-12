@@ -5,6 +5,9 @@ import { AppError } from '../../common/AppError';
 import { ok } from '../../common/response';
 import { conditions, prepare, recommend, validateConfirmation } from './service';
 import midtermRouter from './midtermRouter';
+import { searchProducts } from './productSearch';
+import {prepareProductChat, confirmProductChat} from './productChat';
+import {explainProducts} from './productReasons';
 
 const router = Router();
 const rates = new Map<string, { count: number; until: number }>();
@@ -19,6 +22,12 @@ router.use((req, _res, next) => {
   item.count++; rates.set(key, item); next();
 });
 router.use('/mvp', midtermRouter);
+router.post('/search', async (req, res) => { res.json(ok(await explainProducts(await searchProducts(req.body?.conditions)))); });
+router.post('/chat/prepare', async (req,res) => { res.json(ok(await prepareProductChat(req.body?.message,undefined,req.body?.location,req.body?.selectedConditions))); });
+router.post('/chat/confirm', async (req,res) => {
+  if (req.body?.confirmed !== true) throw new AppError(409,'조건 확인이 필요합니다.');
+  res.json(ok(await explainProducts(await searchProducts(confirmProductChat(req.body?.proposalId)))));
+});
 router.post('/prepare', async (req, res) => { res.json(ok(await prepare(req.body?.message, req.body?.location))); });
 router.post('/confirm', async (req, res) => {
   if (req.body?.confirmed !== true) { throw new AppError(409, '명시적 확인이 필요합니다.'); }

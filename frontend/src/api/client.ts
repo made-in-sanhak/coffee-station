@@ -30,8 +30,17 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
   const preview = isParkMockToken(rawToken);
   const { authentication, ...requestOptions } = options;
   const privateRead = /^\/api\/(users\/me|coupons|purchases|owner|orders)(?:[/?]|$)/.test(path);
+  const method = (options.method ?? 'GET').toUpperCase();
+  const developmentRecommendation = __DEV__ && method === 'POST' && [
+    '/api/recommendations/search',
+    '/api/recommendations/chat/prepare',
+    '/api/recommendations/chat/confirm',
+    '/api/recommendations/mvp/search',
+    '/api/recommendations/mvp/prepare',
+    '/api/recommendations/mvp/confirm',
+  ].includes(path);
   if (preview && path.startsWith('/api/') &&
-      ((options.method ?? 'GET').toUpperCase() !== 'GET' || privateRead)) {
+      (method !== 'GET' || privateRead) && !developmentRecommendation) {
     throw new Error('화면 미리보기 상태입니다. 이 기능은 실제 서비스 로그인 후 이용할 수 있습니다.');
   }
   const token = preview || authentication === 'none' ? null : rawToken;

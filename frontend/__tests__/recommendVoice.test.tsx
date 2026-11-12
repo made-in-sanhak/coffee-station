@@ -2,6 +2,9 @@ import React from 'react';
 import Renderer, { act } from 'react-test-renderer';
 import RecommendScreen from '../src/screens/recommend/RecommendScreen';
 import { native } from '../src/app/native';
+import { api } from '../src/app/api';
+import { Button, Chip } from '../src/app/ui';
+import { usePersonalStore } from '../src/store/personalStore';
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: require('react-native').View,
 }));
@@ -136,4 +139,48 @@ test('a late recognition result after leaving the page does not replace the quer
     await recording;
   });
   expect(input().props.value).toBe('');
+});
+
+test('natural-language preparation sends selected chips and confirms merged conditions', async () => {
+  const previous = usePersonalStore.getState().onboarded;
+  usePersonalStore.setState({ onboarded: false });
+  const proposal = {
+    status: 'AWAITING_CONFIRMATION', proposalId: 'signed-merged-proposal',
+    conditions: { maxPrice: 5000, purpose: null, tastes: ['MILK', 'DECAF'] },
+    evidence: { maxPrice: '5천 원 이하', tastes: '디카페인' }, unresolved: [], extractionMode: 'mock',
+  };
+  const post = jest.spyOn(api, 'post').mockResolvedValue(proposal);
+  jest.mocked(native.getLocation).mockRejectedValueOnce(new Error('위치 없음'));
+  try {
+    const { tree, input, navigation } = await render();
+    await act(() => {
+      tree.root.findAllByType(Chip).find(node => node.props.label === '3천원 이하')!.props.onPress();
+      tree.root.findAllByType(Chip).find(node => node.props.label === '우유 들어간')!.props.onPress();
+      input().props.onChangeText('5천 원 이하 디카페인 메뉴를 찾아줘');
+    });
+    await act(async () => {
+      await tree.root.findAllByType(Button).find(node => node.props.label === '조건에 맞는 카페 찾기')!.props.onPress();
+    });
+    expect(post).toHaveBeenCalledWith('/api/recommendations/chat/prepare', {
+      message: '5천 원 이하 디카페인 메뉴를 찾아줘',
+      selectedConditions: { maxPrice: 3000, purpose: null, tastes: ['MILK'] },
+      location: undefined,
+    });
+    expect(navigation.navigate).not.toHaveBeenCalled();
+    expect(JSON.stringify(tree.toJSON())).toContain('디카페인, 우유 들어간');
+    await act(() => {
+      tree.root.findAllByType(Button).find(node => node.props.label === '분석된 조건 확인 후 검색')!.props.onPress();
+    });
+    expect(navigation.navigate).toHaveBeenCalledWith('RecommendationResult', {
+      request: expect.objectContaining({ budget: 5000, tastes: ['디카페인', '우유 들어간'] }),
+      proposalId: 'signed-merged-proposal',
+    });
+    await act(() => {
+      tree.root.findAllByType(Chip).find(node => node.props.label === '3천원 이하')!.props.onPress();
+    });
+    expect(tree.root.findAllByType(Button).some(node => node.props.label === '분석된 조건 확인 후 검색')).toBe(false);
+  } finally {
+    post.mockRestore();
+    usePersonalStore.setState({ onboarded: previous });
+  }
 });

@@ -47,3 +47,55 @@ test('real Park session is visible to feature screens and logout clears private 
   expect(queryClient.getQueryData(['private-record'])).toBeUndefined();
 });
 
+test.each([
+  '/api/recommendations/search',
+  '/api/recommendations/chat/prepare',
+  '/api/recommendations/chat/confirm',
+  '/api/recommendations/mvp/search',
+  '/api/recommendations/mvp/prepare',
+  '/api/recommendations/mvp/confirm',
+])('development preview can POST %s without mock credentials', async path => {
+  useAuthStore.getState().setSession({ ...session, accessToken: 'mock-access-token', refreshToken: 'mock-refresh-token' });
+  globalThis.fetch = jest.fn(async (_url: string | URL | Request, options?: RequestInit) => {
+    expect(new Headers(options?.headers).has('Authorization')).toBe(false);
+    expect(options?.method).toBe('POST');
+    return { ok: true, json: async () => ({ success: true, data: { accepted: true }, message: null }) } as Response;
+  });
+  await expect(apiFetch(path, {
+    method: 'POST', body: '{}', headers: { Authorization: 'Bearer mock-access-token' },
+  })).resolves.toEqual({ accepted: true });
+  expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+  expect(useSessionStore.getState().user).toBeNull();
+});
+
+test.each([
+  ['/api/recommendations/search', 'DELETE'],
+  ['/api/recommendations/mvp/search', 'DELETE'],
+  ['/api/recommendations/mvp/search/extra', 'POST'],
+  ['/api/recommendations/search/extra', 'POST'],
+  ['/api/recommendations', 'POST'],
+  ['/api/orders', 'POST'],
+  ['/api/purchases', 'POST'],
+])('preview still blocks %s with %s', async (path, method) => {
+  useAuthStore.getState().setSession({ ...session, accessToken: 'mock-access-token', refreshToken: 'mock-refresh-token' });
+  globalThis.fetch = jest.fn();
+  await expect(apiFetch(path, { method, body: '{}' })).rejects.toThrow('실제 서비스 로그인');
+  expect(globalThis.fetch).not.toHaveBeenCalled();
+});
+
+test('release preview cannot POST any development recommendation endpoint', async () => {
+  useAuthStore.getState().setSession({ ...session, accessToken: 'mock-access-token', refreshToken: 'mock-refresh-token' });
+  globalThis.fetch = jest.fn();
+  const previous = __DEV__;
+  try {
+    (globalThis as typeof globalThis & { __DEV__: boolean }).__DEV__ = false;
+    for (const path of ['/api/recommendations/search', '/api/recommendations/chat/prepare', '/api/recommendations/chat/confirm',
+      '/api/recommendations/mvp/search', '/api/recommendations/mvp/prepare', '/api/recommendations/mvp/confirm']) {
+      await expect(apiFetch(path, { method: 'POST', body: '{}' })).rejects.toThrow('실제 서비스 로그인');
+    }
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  } finally {
+    (globalThis as typeof globalThis & { __DEV__: boolean }).__DEV__ = previous;
+  }
+});
+

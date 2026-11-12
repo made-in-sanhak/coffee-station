@@ -9,7 +9,7 @@ test('advertised TTL matches signed expiry and existing defaults',async()=>{
  const data=JSON.parse(Buffer.from(p.proposal_id.split('.')[0],'base64url'));
  assert.equal(p.expires_in_seconds,600);
  assert.ok(data.expires>=before+p.expires_in_seconds*1000 && data.expires<=after+p.expires_in_seconds*1000);
- assert.deepEqual({...aiPolicy},{proposalTtlSeconds:600,providerTimeoutMs:30000,localRateWindowMs:60000,localRateRequests:10,localRateKeys:1000});
+ assert.deepEqual({...aiPolicy},{proposalTtlSeconds:600,providerTimeoutMs:10000,localRateWindowMs:60000,localRateRequests:10,localRateKeys:1000});
 });
 test('invalid configuration fails during module startup',()=>{
  for(const change of [{EXTRACTION_MODE:'invalid'},{PORT:'0'},{EXTRACTION_MODE:'gemini'}]){

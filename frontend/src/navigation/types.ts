@@ -16,7 +16,7 @@ export type RootStackParamList = {
   CafeDetail: { cafeId: string; cafe?: Cafe };
   Compare: { menu?: string } | undefined;
   Recommend: undefined;
-  RecommendationResult: { request: RecommendationRequest };
+  RecommendationResult: { request: RecommendationRequest; proposalId?: string };
   Community:
     | { tab?: 'reviews' | 'meetups'; cafeId?: string; cafeName?: string }
     | undefined;

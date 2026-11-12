@@ -1,5 +1,7 @@
 # 배포 안내
 
+> 현재 배포 제약과 운영 활성화 전 점검 문서. 추천 MVP 개발 순서는 [문서 안내](README.md) 참조.
+
 기준: 2026-11-10. 현재 운영 준비 완료가 아니다. [실시간 추천](ai-recommendation.md), [리뷰 작업](ai-review-analysis.md), [미완료 계획](ai-development-plan.md)을 함께 확인한다.
 
 ## 현재 구성

@@ -25,5 +25,8 @@ export function requestLabels(request: RecommendationRequest) {
       : `${request.budget.toLocaleString('ko-KR')}원 이하`,
     ...request.purposes,
     ...request.tastes,
+    `${request.travelMode === 'walk' ? '도보' : '차로'} ${
+      request.travelMinutes
+    }분`,
   ];
 }

@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Button, Chip, Notice, Screen, tokens } from '../../app/ui';
 import { native } from '../../app/native';
-import {api} from '../../app/api';
 import type { RecommendationRequest } from '../../app/domain';
 import type { RootStackScreenProps } from '../../navigation/types';
 import { usePersonalStore } from '../../store/personalStore';
@@ -12,10 +11,9 @@ import {
   SocialText as Text,
 } from '../community/SocialParts';
 import { makeRecommendationRequest } from './recommendModel';
-import {fromProductConditions, toProductConditions, type ProductProposal} from './recommendContract';
 
-const purposes = ['드라이브스루'];
-const tastes = ['디카페인', '우유 들어간'];
+const purposes = ['테이크아웃', '공부·작업', '대화', '드라이브스루'];
+const tastes = ['산미 적은', '고소한', '달달한', '디카페인', '우유 들어간'];
 
 export default function RecommendScreen({
   navigation,
@@ -24,8 +22,8 @@ export default function RecommendScreen({
   const onboarded = usePersonalStore(state => state.onboarded);
   const [request, setRequest] = useState<RecommendationRequest>(() => ({
     budget: onboarded ? preferences.priceMax : 5000,
-    purposes: onboarded ? preferences.purposes.filter(value => purposes.includes(value)) : [],
-    tastes: onboarded ? preferences.tastes.filter(value => tastes.includes(value)) : [],
+    purposes: onboarded ? preferences.purposes : ['공부·작업'],
+    tastes: onboarded ? preferences.tastes : ['산미 적은'],
     travelMinutes: preferences.travelMinutes,
     travelMode: preferences.travelMode,
     query: '',
@@ -33,11 +31,9 @@ export default function RecommendScreen({
   const [locating, setLocating] = useState(false);
   const [listening, setListening] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
-  const [proposal, setProposal] = useState<ProductProposal | null>(null);
   const mounted = useRef(true);
   const recording = useRef(false);
   const submitting = useRef(false);
-  const inputVersion = useRef(0);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -57,8 +53,6 @@ export default function RecommendScreen({
         throw new Error(
           '음성을 확인하지 못했습니다. 다시 말하거나 글자로 입력해 주세요.',
         );
-      setProposal(null);
-      inputVersion.current++;
       setRequest(previous => ({ ...previous, query }));
     } catch (reason) {
       if (
@@ -76,21 +70,16 @@ export default function RecommendScreen({
       if (mounted.current) setListening(false);
     }
   };
-  const changeList = (name: 'purposes' | 'tastes', value: string) => {
-    inputVersion.current++;
-    setProposal(null);
+  const changeList = (name: 'purposes' | 'tastes', value: string) =>
     setRequest(previous => ({
       ...previous,
       [name]: previous[name].includes(value)
         ? previous[name].filter(item => item !== value)
         : [...previous[name], value],
     }));
-  };
   const submit = async () => {
     if (submitting.current || recording.current) return;
     submitting.current = true;
-    const submittedVersion = inputVersion.current;
-    setHint(null);
     setLocating(true);
     let location = {};
     try {
@@ -98,24 +87,13 @@ export default function RecommendScreen({
     } catch {
       /* Region-free results remain possible without location permission. */
     }
-    try {
-      if (request.query.trim()) {
-        const prepared = await api.post<ProductProposal>('/api/recommendations/chat/prepare',
-          {message: request.query.trim(), selectedConditions: toProductConditions(request), location: Object.keys(location).length
-            ? {lat:(location as {latitude:number}).latitude,lng:(location as {longitude:number}).longitude}
-            : undefined});
-        if (mounted.current && inputVersion.current === submittedVersion && navigation.isFocused?.() !== false) setProposal(prepared);
-      } else if (mounted.current && inputVersion.current === submittedVersion && navigation.isFocused?.() !== false) {
-        navigation.navigate('RecommendationResult', {
-          request: makeRecommendationRequest({ ...request, ...location }),
-        });
-      }
-    } catch (reason) {
-      if (mounted.current) setHint(reason instanceof Error ? reason.message : '조건을 분석하지 못했습니다.');
-    } finally {
-      submitting.current = false;
-      if (mounted.current) setLocating(false);
-    }
+    submitting.current = false;
+    if (!mounted.current) return;
+    setLocating(false);
+    if (navigation.isFocused?.() === false) return;
+    navigation.navigate('RecommendationResult', {
+      request: makeRecommendationRequest({ ...request, ...location }),
+    });
   };
 
   return (
@@ -126,20 +104,17 @@ export default function RecommendScreen({
     >
       <PageTitle
         title="어떤 커피가 필요하세요?"
-        subtitle="예산과 확인 가능한 메뉴 조건으로 카페를 찾아드려요"
+        subtitle="조건을 고르면 AI가 주변 카페를 골라 드려요"
       />
       <View style={styles.request}>
         <TextInput
           testID="recommend-query"
           accessibilityLabel="추천 요청"
           value={request.query}
-          onChangeText={query => {
-            inputVersion.current++;
-            setProposal(null);
-            setHint(null);
-            setRequest(previous => ({ ...previous, query }));
-          }}
-          placeholder="예: 5천 원 이하 디카페인 메뉴를 찾아줘"
+          onChangeText={query =>
+            setRequest(previous => ({ ...previous, query }))
+          }
+          placeholder="회의 전에 30분 정도 조용히 앉아 있을 수 있는 곳, 5천원 이하로 찾아줘"
           placeholderTextColor={tokens.muted}
           multiline
           editable={!listening && !locating}
@@ -164,10 +139,6 @@ export default function RecommendScreen({
         </Pressable>
       </View>
       {hint && <Notice>{hint}</Notice>}
-      {proposal && <Notice>{proposal.unresolved.length
-        ? `추가 확인이 필요합니다: ${proposal.unresolved.join(', ')}`
-        : `최종 검색 조건: ${proposal.conditions.maxPrice === null ? '예산 제한 없음' : `${proposal.conditions.maxPrice}원 이하`}, ${proposal.conditions.purpose === 'DRIVE_THRU' ? '드라이브스루' : '목적 제한 없음'}, ${fromProductConditions(proposal.conditions, '').tastes.join(', ') || '취향 제한 없음'}. 자연어 근거: ${Object.values(proposal.evidence).join(', ') || '없음'}`}</Notice>}
-      <Notice>자연어를 입력해도 선택한 조건을 유지합니다. 문장에 명시한 예산·목적은 우선 적용하고, 취향은 선택한 항목과 합칩니다. 조건을 해제하려면 칩에서 변경해 주세요.</Notice>
       <View style={styles.group}>
         <Text style={styles.label}>예산</Text>
         <View style={styles.chips}>
@@ -180,11 +151,9 @@ export default function RecommendScreen({
               key={item.label}
               label={item.label}
               selected={request.budget === item.value}
-              onPress={() => {
-                inputVersion.current++;
-                setProposal(null);
-                setRequest(previous => ({ ...previous, budget: item.value }));
-              }}
+              onPress={() =>
+                setRequest(previous => ({ ...previous, budget: item.value }))
+              }
             />
           ))}
         </View>
@@ -215,17 +184,35 @@ export default function RecommendScreen({
           ))}
         </View>
       </View>
-      <Notice>공부·대화, 맛 취향과 이동 시간은 자료가 준비되면 제공됩니다. 현재는 예산·드라이브스루·디카페인·우유 포함 조건을 검색합니다.</Notice>
+      <View style={styles.group}>
+        <Text style={styles.label}>이동 거리</Text>
+        <View style={styles.chips}>
+          {[
+            { label: '도보 5분', mode: 'walk' as const, minutes: 5 },
+            { label: '도보 10분', mode: 'walk' as const, minutes: 10 },
+            { label: '차로 10분', mode: 'drive' as const, minutes: 10 },
+          ].map(item => (
+            <Chip
+              key={item.label}
+              label={item.label}
+              selected={
+                request.travelMode === item.mode &&
+                request.travelMinutes === item.minutes
+              }
+              onPress={() =>
+                setRequest(previous => ({
+                  ...previous,
+                  travelMode: item.mode,
+                  travelMinutes: item.minutes,
+                }))
+              }
+            />
+          ))}
+        </View>
+      </View>
       <View style={styles.spacer} />
-      {proposal?.status === 'AWAITING_CONFIRMATION' && <Button
-        label="분석된 조건 확인 후 검색"
-        onPress={() => navigation.navigate('RecommendationResult', {
-          request: fromProductConditions(proposal.conditions,request.query), proposalId: proposal.proposalId,
-        })}
-        disabled={locating || listening}
-      />}
       <Button
-        label="조건에 맞는 카페 찾기"
+        label="AI 추천 받기"
         onPress={submit}
         loading={locating}
         disabled={listening}

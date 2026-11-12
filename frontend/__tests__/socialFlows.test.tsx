@@ -131,7 +131,7 @@ test('a server-confirmed shared like updates the displayed count', async () => {
 
 const request = {
   budget: 5000,
-  purposes: [],
+  purposes: ['공부·작업'],
   tastes: [],
   travelMode: 'walk',
   travelMinutes: 10,

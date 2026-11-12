@@ -1,7 +1,5 @@
 # 실시간 추천 — Express
 
-> 현재 코드의 추천 경로·제한 설명. 제품 추천 탭의 다음 작업은 [추천 MVP 구현 기준](recommendation-mvp-implementation.md)을 따른다. 아래 날짜별 테스트 수와 진행 상태는 작성 당시 기록이다.
-
 발표용 정확한 메뉴/온도/사이즈 조건은 별도 `/api/recommendations/mvp/search·prepare·confirm` 경로를 사용한다. [MVP 계약](midterm-recommendation-contract.md)을 따른다. 기존 category 기반 API와 DTO가 다르며 프런트 통합 전이다. MVP prepare도 EXTRACTION_MODE에 따라 mock/Gemini를 선택하고 나머지 검색은 현재 모의 데이터다. 실제 API 추가 호출은 사용자 확인 후 진행한다.
 
 기준: 2026-11-10 현재 코드. 팀 화면·인증 계약은 아직 합의 전이다. 앱의 실시간 요청은 [Express 라우터](../backend/src/modules/recommendations/router.ts)가 처리한다. Python HTTP 서버는 없다.

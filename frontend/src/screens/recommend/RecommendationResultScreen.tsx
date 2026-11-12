@@ -29,7 +29,6 @@ import {
 } from '../community/SocialParts';
 import { readableError } from '../community/socialModel';
 import { recommendationHeading, requestLabels } from './recommendModel';
-import { toProductConditions } from './recommendContract';
 
 export default function RecommendationResultScreen({
   navigation,
@@ -46,23 +45,11 @@ export default function RecommendationResultScreen({
     setLoading(true);
     setError(null);
     setResult(null);
-    const request = JSON.parse(requestKey);
-    let search: Promise<RecommendationResult>;
-    try {
-      search = route.params.proposalId
-        ? api.post<RecommendationResult>('/api/recommendations/chat/confirm', {
-          proposalId: route.params.proposalId, confirmed: true,
-        })
-        : request.query.trim()
-        ? Promise.reject(new Error('자연어 조건을 먼저 확인해 주세요.'))
-        : api.post<RecommendationResult>(
-          '/api/recommendations/search',
-          {conditions: toProductConditions(request)},
-        );
-    } catch (reason) {
-      search = Promise.reject(reason);
-    }
-    search
+    api
+      .post<RecommendationResult>(
+        '/api/recommendations',
+        JSON.parse(requestKey),
+      )
       .then(value => {
         if (!active) return;
         if (
@@ -85,7 +72,7 @@ export default function RecommendationResultScreen({
     return () => {
       active = false;
     };
-  }, [requestKey, route.params.proposalId, attempt]);
+  }, [requestKey, attempt]);
 
   const directions = async (item: RecommendationItem) => {
     try {
@@ -135,12 +122,13 @@ export default function RecommendationResultScreen({
           {(route.params.request.latitude === undefined ||
             route.params.request.longitude === undefined) && (
             <Notice>
-              위치 정보가 없어 매장까지의 직선거리를 표시할 수 없습니다.
+              위치 정보가 없어 이동 거리 조건을 확인할 수 없습니다.
             </Notice>
           )}
           {result.mode === 'rules' && (
             <Notice>
-              DB 시연 가격입니다. 실제 판매 가격과 확인일은 검증되지 않았습니다.
+              AI 연결 대신 실제 카페 데이터와 선택한 조건을 기준으로
+              정렬했습니다.
             </Notice>
           )}
           {result.items.length === 0 && (
@@ -181,7 +169,7 @@ export default function RecommendationResultScreen({
                     {item.matchedMenu
                       ? ` · ${item.matchedMenu.name} ${formatMoney(
                           item.matchedMenu.price,
-                        )}${item.matchedMenu.isDemo ? ' (시연 가격)' : ''}`
+                        )}`
                       : ''}
                     {item.cafe.rating == null
                       ? ''
@@ -237,8 +225,8 @@ export default function RecommendationResultScreen({
             <SocialIcon name="shield" />
             <Text style={[s.tiny, s.grow]}>
               {result.mode === 'ai'
-                ? '순위는 DB 시연 가격으로 정하고, AI는 확인된 사실 문구만 선택했습니다.'
-                : '선택한 조건에 맞는 DB 시연 가격을 기준으로 정렬했습니다.'}
+                ? '순위는 가격·거리·리뷰 데이터로 정하고, AI는 추천 이유만 설명해요.'
+                : '가격·거리·리뷰 데이터와 선택한 조건을 바탕으로 추천합니다.'}
             </Text>
           </View>
         </>

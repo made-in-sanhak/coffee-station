@@ -14,7 +14,11 @@
 | --- | --- | --- |
 | `POST /api/recommendations/search` | `{ "conditions": { "maxPrice": 5000, "purpose": null, "tastes": ["DECAF"], "lat": 37.62, "lng": 126.83 } }` | Gemini 조건 추출 없이 DB 검색. 위치는 선택 사항 |
 | `POST /api/recommendations/chat/prepare` | `{ "message": "...", "selectedConditions": { "maxPrice": 3000, "purpose": null, "tastes": ["MILK"] }, "location": { "lat": 37.62, "lng": 126.83 } }` | mock 또는 Gemini로 조건 추출 후 선택한 칩과 병합; 최종 조건·자연어 근거·미해결 항목·서명된 `proposalId` 반환 |
-| `POST /api/recommendations/chat/confirm` | `{ "proposalId": "...", "confirmed": true }` | 서명·만료·미해결 여부 확인 후 같은 DB 검색 |
+| `POST /api/recommendations/chat/confirm` | `{ "proposalId": "...", "confirmed": true }` | 서명·만료·미해결 여부 확인 후 토큰에 담긴 조건으로 DB 검색. 본문에 조건을 추가해도 적용되지 않음 |
+
+`/search`와 `/chat/confirm`은 공통 성공 응답의 `data`에 `items`를 반환한다. 예를 들어 일치하는 메뉴가 없으면 `{"success":true,"data":{"items":[]},"message":null}`이다. `/chat/prepare`의 `data.status`는 조건을 확인할 수 있을 때 `AWAITING_CONFIRMATION`, 미해결 조건이 있을 때 `NEEDS_CLARIFICATION`이다. 명시적 확인이 없거나 제안이 유효하지 않으면 `/chat/confirm`은 409를 반환한다.
+
+기존 모의 경로인 `POST /`, `/prepare`, `/confirm`은 [실시간 추천](ai-recommendation.md)에 별도로 정리했다. 기존 프런트의 `RecommendationScreen`은 `api/recommendations.ts`를 통해 모의 `/prepare`와 `/confirm`을 호출하며, 기존 루트 경로는 백엔드 테스트에서 사용한다.
 
 `selectedConditions`는 선택 사항이다. 자연어에서 언급하지 않은 예산·목적은 선택한 칩을 유지하며, 명시한 값은 자연어를 우선한다. 취향은 중복 없이 합친다. 위치는 `location`에서만 반영한다. 자연어 원문 근거는 추출된 조건에 대한 것이며, 병합된 최종 조건 전체를 사용자가 확인한 뒤 검색한다. 조건 해제·제외 요청은 미지원으로 남기며 칩에서 변경한다.
 

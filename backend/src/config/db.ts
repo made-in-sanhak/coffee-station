@@ -12,11 +12,12 @@ import { env } from './env';
  *     ... conn.query(...) ...
  *     await conn.commit();
  *   } catch (e) {
- *     await conn.rollback();
+ *     try { await conn.rollback(); } catch { broken = true; } // 롤백 실패 = 상태를 알 수 없는 연결
  *     throw e;
  *   } finally {
- *     conn.release();
+ *     if (broken) conn.destroy(); else conn.release();   // 깨진 연결은 풀에 돌려주지 않음
  *   }
+ *   (try 앞에 let broken = false; 를 둡니다. 예: modules/auth/userStore.ts rotateRefreshToken)
  */
 export const pool = mysql.createPool({
   host: env.db.host,

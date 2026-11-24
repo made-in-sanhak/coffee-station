@@ -18,6 +18,22 @@
 | `GET /api/cafes/:id` | 숫자 매장 ID | 매장 상세. 없는 ID는 404 |
 | `GET /api/cafes/:id/menus` | 숫자 매장 ID | 매장 메뉴·가격 목록. 없는 ID는 404 |
 
+## 로그인·회원
+
+카카오 로그인만 앱 호출 경로에 맞춰 접두사 없이 `/auth`를 쓰고, 나머지는 `/api/auth`·`/api/users`를 쓴다. 카카오 토큰 교환은 서버가 `.env`의 `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_REDIRECT_URI`로 한다. 클라이언트 시크릿은 서버에서만 사용하며 앱에 넣지 않는다. 토큰 서명에는 `JWT_SECRET`이 필요하다(비어 있으면 로그인 500).
+
+| 경로 | 요청 | 처리 |
+| --- | --- | --- |
+| `POST /auth/kakao` | `{ "code": "카카오 인가 코드", "redirectUri": "http://localhost:8080/auth/kakao/callback" }` | 카카오 토큰 교환 → 사용자 정보 조회 → 카카오 회원번호로 회원 저장(없으면 생성, 있으면 닉네임·사진 갱신) → `{ accessToken, refreshToken, user: { id, nickname, profileImageUrl } }` 반환 |
+| `POST /api/auth/refresh` | `{ "refreshToken": "..." }` | 새 access·refresh 토큰 발급. 사용한 refresh 토큰은 폐기되어 다시 쓸 수 없음 |
+| `POST /api/auth/logout` | `{ "refreshToken": "..." }` | refresh 토큰 폐기. 이미 폐기된 토큰이어도 200, `data: null` |
+| `GET /api/users/me` | `Authorization: Bearer <accessToken>` | 내 정보 `{ id, nickname, profileImageUrl, role }` |
+
+- **토큰**: access 토큰은 HS256 JWT(1시간, `sub`=회원 ID, `role`). refresh 토큰은 무작위 값(14일)이며 DB에는 SHA-256 해시만 저장한다(`users`, `refresh_tokens` 테이블).
+- **오류**: `code` 누락·`redirectUri` 불일치·`refreshToken` 누락은 400. 카카오 교환 실패(예: 시크릿 누락 KOE010, 만료된 인가 코드)·만료/폐기된 refresh 토큰·유효하지 않은 access 토큰은 401. 카카오 설정 또는 `JWT_SECRET`이 없으면 500, DB를 쓸 수 없으면 503.
+- **로그인 필요한 API 만들기**: 라우터에 `requireAuth`(`backend/src/middlewares/requireAuth.ts`)를 붙이고 `authOf(res).userId`로 회원 ID를 꺼낸다.
+- **DB 준비**: 새 DB는 `backend/sql/schema.sql`, 기존 DB는 `backend/sql/migrations/002_auth_users.sql`을 적용한다.
+
 ## 개발용 추천 탭 경로 (2026-11-11)
 
 현재 Express 접두사는 `/api/recommendations`이며 `/api/v1` 제품 명세와 다르다. `NODE_ENV=production`에서는 모든 추천 경로가 503으로 차단된다. `MVP_CATALOG_MODE=mysql-seed`에서 행신 DEMO 가격만 조회한다.

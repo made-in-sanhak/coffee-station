@@ -2,10 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Button, Chip, Notice, Screen, tokens } from '../../app/ui';
 import { native } from '../../app/native';
-import {api} from '../../app/api';
-import type { RecommendationRequest } from '../../app/domain';
+import { api } from '../../app/api';
+import {
+  DEFAULT_PREFERENCES,
+  type RecommendationRequest,
+} from '../../app/domain';
 import type { RootStackScreenProps } from '../../navigation/types';
-import { usePersonalStore } from '../../store/personalStore';
 import {
   PageTitle,
   SocialIcon,
@@ -14,22 +16,31 @@ import {
 import { makeRecommendationRequest } from './recommendModel';
 import {fromProductConditions, toProductConditions, type ProductProposal} from './recommendContract';
 
-const purposes = ['드라이브스루'];
-const tastes = ['디카페인', '우유 들어간'];
+const purposes = ['테이크아웃', '공부·작업', '대화', '드라이브스루'];
+const tastes = ['산미 적은', '고소한', '달달한', '디카페인', '우유 들어간'];
+
+const defaultTravel = {
+  travelMode: DEFAULT_PREFERENCES.travelMode,
+  travelMinutes: DEFAULT_PREFERENCES.travelMinutes,
+};
+
+type RecommendationDraft = Pick<
+  RecommendationRequest,
+  'purposes' | 'tastes' | 'query'
+> & {
+  budget?: RecommendationRequest['budget'];
+  travel?: Pick<RecommendationRequest, 'travelMode' | 'travelMinutes'>;
+};
 
 export default function RecommendScreen({
   navigation,
 }: RootStackScreenProps<'Recommend'>) {
-  const preferences = usePersonalStore(state => state.preferences);
-  const onboarded = usePersonalStore(state => state.onboarded);
-  const [request, setRequest] = useState<RecommendationRequest>(() => ({
-    budget: onboarded ? preferences.priceMax : 5000,
-    purposes: onboarded ? preferences.purposes.filter(value => purposes.includes(value)) : [],
-    tastes: onboarded ? preferences.tastes.filter(value => tastes.includes(value)) : [],
-    travelMinutes: preferences.travelMinutes,
-    travelMode: preferences.travelMode,
+  const [request, setRequest] = useState<RecommendationDraft>({
+    budget: undefined,
+    purposes: [],
+    tastes: [],
     query: '',
-  }));
+  });
   const [locating, setLocating] = useState(false);
   const [listening, setListening] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
@@ -88,30 +99,69 @@ export default function RecommendScreen({
   };
   const submit = async () => {
     if (submitting.current || recording.current) return;
+
     submitting.current = true;
     const submittedVersion = inputVersion.current;
     setHint(null);
     setLocating(true);
+
     let location = {};
+
     try {
       location = await native.getLocation();
     } catch {
-      /* Region-free results remain possible without location permission. */
+      // 위치 권한이 없어도 검색 가능
     }
+
     try {
+      const { budget, travel, ...criteria } = request;
+
+      const normalizedRequest = makeRecommendationRequest({
+        ...criteria,
+        budget: budget ?? null,
+        ...(travel ?? defaultTravel),
+        ...location,
+      });
+
       if (request.query.trim()) {
-        const prepared = await api.post<ProductProposal>('/api/recommendations/chat/prepare',
-          {message: request.query.trim(), selectedConditions: toProductConditions(request), location: Object.keys(location).length
-            ? {lat:(location as {latitude:number}).latitude,lng:(location as {longitude:number}).longitude}
-            : undefined});
-        if (mounted.current && inputVersion.current === submittedVersion && navigation.isFocused?.() !== false) setProposal(prepared);
-      } else if (mounted.current && inputVersion.current === submittedVersion && navigation.isFocused?.() !== false) {
+        const prepared = await api.post<ProductProposal>(
+          '/api/recommendations/chat/prepare',
+          {
+            message: request.query.trim(),
+            selectedConditions: toProductConditions(normalizedRequest),
+            location: Object.keys(location).length
+              ? {
+                  lat: (location as { latitude: number }).latitude,
+                  lng: (location as { longitude: number }).longitude,
+                }
+              : undefined,
+          },
+        );
+
+        if (
+          mounted.current &&
+          inputVersion.current === submittedVersion &&
+          navigation.isFocused?.() !== false
+        ) {
+          setProposal(prepared);
+        }
+      } else if (
+        mounted.current &&
+        inputVersion.current === submittedVersion &&
+        navigation.isFocused?.() !== false
+      ) {
         navigation.navigate('RecommendationResult', {
-          request: makeRecommendationRequest({ ...request, ...location }),
+          request: normalizedRequest,
         });
       }
     } catch (reason) {
-      if (mounted.current) setHint(reason instanceof Error ? reason.message : '조건을 분석하지 못했습니다.');
+      if (mounted.current) {
+        setHint(
+          reason instanceof Error
+            ? reason.message
+            : '조건을 분석하지 못했습니다.',
+        );
+      }
     } finally {
       submitting.current = false;
       if (mounted.current) setLocating(false);
@@ -215,7 +265,41 @@ export default function RecommendScreen({
           ))}
         </View>
       </View>
-      <Notice>공부·대화, 맛 취향과 이동 시간은 자료가 준비되면 제공됩니다. 현재는 예산·드라이브스루·디카페인·우유 포함 조건을 검색합니다.</Notice>
+      <View style={styles.group}>
+        <Text style={styles.label}>이동 거리</Text>
+        <View style={styles.chips}>
+          {[
+            { label: '도보 5분', mode: 'walk' as const, minutes: 5 },
+            { label: '도보 10분', mode: 'walk' as const, minutes: 10 },
+            { label: '차로 10분', mode: 'drive' as const, minutes: 10 },
+          ].map(item => (
+            <Chip
+              key={item.label}
+              label={item.label}
+              selected={
+                request.travel?.travelMode === item.mode &&
+                request.travel.travelMinutes === item.minutes
+              }
+              onPress={() =>
+                setRequest(previous => ({
+                  ...previous,
+                  travel: {
+                    travelMode: item.mode,
+                    travelMinutes: item.minutes,
+                  },
+                }))
+              }
+            />
+          ))}
+        </View>
+        {request.travel ? null : (
+          <Text style={styles.travelHint}>
+            선택하지 않으면{' '}
+            {defaultTravel.travelMode === 'walk' ? '도보' : '차로'}{' '}
+            {defaultTravel.travelMinutes}분을 기준으로 찾아요.
+          </Text>
+        )}
+      </View>
       <View style={styles.spacer} />
       {proposal?.status === 'AWAITING_CONFIRMATION' && <Button
         label="분석된 조건 확인 후 검색"
@@ -264,5 +348,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  travelHint: { color: tokens.muted, fontSize: 12, lineHeight: 18 },
   spacer: { flexGrow: 1, minHeight: 2 },
 });

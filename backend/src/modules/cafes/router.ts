@@ -73,6 +73,9 @@ router.get('/options',async(_req,res)=>{
     res.json(ok(rows.map(row=>String(row.size))));
   } catch {throw new AppError(503,'매장 사이즈 정보를 조회할 수 없습니다.');}
 });
+// GET /api/cafes 는 menu 파라미터로 두 가지 요청을 구분합니다.
+//  - menu 있음: 지도 가격 조회 (지도 화면). 개발용 DB 시드 모드에서만 동작합니다.
+//  - menu 없음: 매장 목록·이름 검색(query) (이벤트·리뷰 작성·모임 화면).
 router.get('/',async(req,res)=>{
   if(req.query.menu===undefined){res.json(ok(await listCafes(req.query)));return;}
   if(env.nodeEnv==='production'||env.catalogMode!=='mysql-seed') throw new AppError(503,'개발용 DB 지도 조회를 활성화하세요.');

@@ -68,31 +68,6 @@ const assets = {
     width: 13,
     height: 6,
   },
-  car: {
-    source: require('../../assets/figma/rewards/1819f.png'),
-    width: 22,
-    height: 22,
-  },
-  lock: {
-    source: require('../../assets/figma/rewards/a470c.png'),
-    width: 22,
-    height: 22,
-  },
-  carIllustration: {
-    source: require('../../assets/figma/rewards/0aaa9.png'),
-    width: 220,
-    height: 110,
-  },
-  gauge: {
-    source: require('../../assets/figma/rewards/f86ee.png'),
-    width: 16,
-    height: 16,
-  },
-  gaugeBackground: {
-    source: require('../../assets/figma/rewards/a9e13.png'),
-    width: 120,
-    height: 60,
-  },
 };
 
 export function RewardAsset({ name }: { name: keyof typeof assets }) {
@@ -105,6 +80,7 @@ export function RewardAsset({ name }: { name: keyof typeof assets }) {
     />
   );
 }
+
 
 const receiptBars = [
   1, 2, 1, 1, 3, 1, 2, 2, 1, 3, 1, 2, 1, 1, 3, 2, 1, 1, 2, 3, 1, 2, 1, 1, 3, 1,
@@ -183,7 +159,22 @@ function ReceiptPaper() {
   );
 }
 
-export function ReceiptViewfinder({ imageUri }: { imageUri?: string }) {
+// 영수증·메뉴판 촬영 화면이 함께 씁니다. placeholder 로 빈 화면 그림을, hint 로 안내 문구를 바꿀 수 있어요.
+export function ReceiptViewfinder({
+  imageUri,
+  hint = '영수증 전체가 보이게 맞춰 주세요',
+  imageLabel = '선택한 영수증',
+  placeholder,
+  corners = true,
+  overlay,
+}: {
+  imageUri?: string;
+  hint?: string | null;
+  imageLabel?: string;
+  placeholder?: React.ReactNode;
+  corners?: boolean;
+  overlay?: React.ReactNode;
+}) {
   const [width, setWidth] = useState(350);
   const gradient = Array.from({ length: 72 }, (_, index) => {
     const y = -250 + index * 12;
@@ -217,7 +208,7 @@ export function ReceiptViewfinder({ imageUri }: { imageUri?: string }) {
           source={{ uri: imageUri }}
           style={StyleSheet.absoluteFill}
           resizeMode="contain"
-          accessibilityLabel="선택한 영수증"
+          accessibilityLabel={imageLabel}
         />
       ) : (
         <>
@@ -225,28 +216,35 @@ export function ReceiptViewfinder({ imageUri }: { imageUri?: string }) {
           {[7, 153, 318].map((top, index) => (
             <View key={index} style={[s.grain, { top }]} />
           ))}
-          <ReceiptPaper />
+          {placeholder ?? <ReceiptPaper />}
         </>
       )}
-      <Image
-        source={require('../../assets/figma/rewards/a7020.png')}
-        style={[s.corner, s.topLeft]}
-      />
-      <Image
-        source={require('../../assets/figma/rewards/73d37.png')}
-        style={[s.corner, s.topRight]}
-      />
-      <Image
-        source={require('../../assets/figma/rewards/caf14.png')}
-        style={[s.corner, s.bottomRight]}
-      />
-      <Image
-        source={require('../../assets/figma/rewards/c5947.png')}
-        style={[s.corner, s.bottomLeft]}
-      />
-      <View style={s.hint}>
-        <Text style={s.hintText}>영수증 전체가 보이게 맞춰 주세요</Text>
-      </View>
+      {corners && (
+        <>
+          <Image
+            source={require('../../assets/figma/rewards/a7020.png')}
+            style={[s.corner, s.topLeft]}
+          />
+          <Image
+            source={require('../../assets/figma/rewards/73d37.png')}
+            style={[s.corner, s.topRight]}
+          />
+          <Image
+            source={require('../../assets/figma/rewards/caf14.png')}
+            style={[s.corner, s.bottomRight]}
+          />
+          <Image
+            source={require('../../assets/figma/rewards/c5947.png')}
+            style={[s.corner, s.bottomLeft]}
+          />
+        </>
+      )}
+      {overlay}
+      {hint !== null && (
+        <View style={s.hint}>
+          <Text style={s.hintText}>{hint}</Text>
+        </View>
+      )}
     </View>
   );
 }

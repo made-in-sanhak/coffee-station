@@ -6,6 +6,18 @@
 
 인증, 카페·메뉴, 구매, OCR 등 전체 제품 API 명세는 팀 계약 확정 후 추가한다. 구현되지 않은 경로를 현재 API로 표시하지 않는다.
 
+## 매장 (`/api/cafes`)
+
+매장 API는 `backend/src/modules/cafes/router.ts` 한 곳에서만 정의한다. 리뷰 요약(`/:cafeId/review-summary`)만 `modules/reviewSummaries/router.ts`에 있다. 같은 접두사에 라우터를 새로 붙이지 않는다.
+
+| 경로 | 요청 | 처리 |
+| --- | --- | --- |
+| `GET /api/cafes` (`menu` 있음) | `latitude`, `longitude`, `radius`, `menu`, `temperature`, 선택 `size`·`sort` | 지도 가격 조회. 개발용 DB 시드 모드(`MVP_CATALOG_MODE=mysql-seed`)에서만 동작하고, 그 외·운영에서는 503 |
+| `GET /api/cafes` (`menu` 없음) | 선택 `query`(이름·주소 검색), 선택 `latitude`·`longitude`·`radius` | 매장 목록·검색. 위치가 있으면 반경(기본 1000m) 안을 가까운 순으로 반환 |
+| `GET /api/cafes/options` | 없음 | 지도에서 고를 수 있는 사이즈 목록 (DB 시드 모드에서만) |
+| `GET /api/cafes/:id` | 숫자 매장 ID | 매장 상세. 없는 ID는 404 |
+| `GET /api/cafes/:id/menus` | 숫자 매장 ID | 매장 메뉴·가격 목록. 없는 ID는 404 |
+
 ## 개발용 추천 탭 경로 (2026-11-11)
 
 현재 Express 접두사는 `/api/recommendations`이며 `/api/v1` 제품 명세와 다르다. `NODE_ENV=production`에서는 모든 추천 경로가 503으로 차단된다. `MVP_CATALOG_MODE=mysql-seed`에서 행신 DEMO 가격만 조회한다.

@@ -10,13 +10,11 @@ const KEY = 'coffee.personal.v1';
 const READ_ERROR =
   '개인 기록을 읽지 못했습니다. 원본은 유지되며 다시 불러올 때까지 저장할 수 없습니다.';
 const SHAPE_ERROR = '개인 기록의 데이터 형식이 올바르지 않습니다.';
-export type CarSkinLevel = 1 | 3 | 4 | 6;
 interface PersonalData {
   preferences: Preferences;
   purchases: Purchase[];
   favoriteIds: string[];
   onboarded: boolean;
-  selectedCarSkinLevel: CarSkinLevel | null;
 }
 interface PersonalState extends PersonalData {
   hydrated: boolean;
@@ -27,7 +25,6 @@ interface PersonalState extends PersonalData {
   addPurchases: (value: Purchase[]) => Promise<void>;
   removePurchase: (id: string) => Promise<void>;
   toggleFavorite: (id: string) => Promise<void>;
-  setCarSkinLevel: (level: CarSkinLevel) => Promise<void>;
 }
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value))
@@ -128,19 +125,12 @@ function purchases(value: unknown): Purchase[] {
     throw new Error(SHAPE_ERROR);
   return result;
 }
-function carSkin(value: unknown): CarSkinLevel | null {
-  if (value === null || value === undefined) return null;
-  if (value !== 1 && value !== 3 && value !== 4 && value !== 6)
-    throw new Error(SHAPE_ERROR);
-  return value;
-}
 function defaults(): PersonalData {
   return {
     preferences: preferences(DEFAULT_PREFERENCES, false),
     purchases: [],
     favoriteIds: [],
     onboarded: false,
-    selectedCarSkinLevel: null,
   };
 }
 function personalData(value: unknown): PersonalData {
@@ -159,7 +149,6 @@ function personalData(value: unknown): PersonalData {
         ? []
         : [...new Set(strings(source.favoriteIds))],
     onboarded: source.onboarded === true,
-    selectedCarSkinLevel: carSkin(source.selectedCarSkinLevel),
   };
 }
 let writes: Promise<void> = Promise.resolve();
@@ -171,14 +160,12 @@ function snapshot(): PersonalData {
     purchases: currentPurchases,
     favoriteIds,
     onboarded,
-    selectedCarSkinLevel,
   } = usePersonalStore.getState();
   return {
     preferences: currentPreferences,
     purchases: currentPurchases,
     favoriteIds,
     onboarded,
-    selectedCarSkinLevel,
   };
 }
 function update(change: (value: PersonalData) => PersonalData): Promise<void> {
@@ -247,11 +234,6 @@ export const usePersonalStore = create<PersonalState>(set => ({
       ...value,
       purchases: value.purchases.filter(item => item.id !== id),
     }));
-  },
-  setCarSkinLevel: async input => {
-    const level = carSkin(input);
-    if (level === null) throw new Error(SHAPE_ERROR);
-    await update(value => ({ ...value, selectedCarSkinLevel: level }));
   },
   toggleFavorite: async input => {
     const id = text(input);

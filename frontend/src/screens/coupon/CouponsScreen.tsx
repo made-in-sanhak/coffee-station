@@ -93,7 +93,7 @@ export default function CouponsScreen({
       ],
     );
   return (
-    <Screen navigation={navigation} title="쿠폰함" tab="garage">
+    <Screen navigation={navigation} title="쿠폰함" tab="record">
       <View style={s.content}>
         <View style={s.row}>
           {(

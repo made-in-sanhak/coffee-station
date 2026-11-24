@@ -4,7 +4,6 @@ import Renderer, { act } from 'react-test-renderer';
 import type { Purchase } from '../../app/domain';
 import { usePersonalStore } from '../../store/personalStore';
 import { useSessionStore } from '../../store/sessionStore';
-import { CaffeineGauge } from '../receipt/RewardVisuals';
 import CalendarScreen from './CalendarScreen';
 
 const mockUseResource = jest.fn();
@@ -16,7 +15,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 test.each(['local', 'server'])(
-  'selecting a %s purchase date updates the gauge and keeps lifetime totals',
+  'selecting a %s purchase date shows that day and keeps lifetime totals',
   async source => {
     const today = new Date();
     const otherDay = today.getDate() === 1 ? 2 : 1;
@@ -66,27 +65,21 @@ test.each(['local', 'server'])(
     await act(() => {
       tree = Renderer.create(<CalendarScreen {...props} />);
     });
-    expect(tree.root.findByType(CaffeineGauge).props.value).toBe(0);
+    expect(JSON.stringify(tree.toJSON())).not.toContain('기록 카페');
     const dayButton = tree.root
       .findAllByProps({ testID: `calendar-day-${otherDay}` })
       .find(node => typeof node.props.onPress === 'function');
     await act(() => dayButton!.props.onPress());
-    expect(tree.root.findByType(CaffeineGauge).props).toMatchObject({
-      value: 250,
-      day: '선택한 날',
-    });
-    expect(JSON.stringify(tree.toJSON())).toContain('기록 카페');
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('기록 카페');
+    expect(rendered).not.toMatch(/카페인|mg/);
+    expect(rendered).not.toContain('나의 차고');
     const editPreferences = tree.root.findAll(
       node =>
         node.props.label === '나의 커피 취향 수정' &&
         typeof node.props.onPress === 'function',
     )[0];
-    expect({
-      hasPreferenceEdit: !!editPreferences,
-      repeatsCaffeineBelowGauge: JSON.stringify(tree.toJSON()).includes(
-        '이날 카페인',
-      ),
-    }).toEqual({ hasPreferenceEdit: true, repeatsCaffeineBelowGauge: false });
+    expect(editPreferences).toBeDefined();
     await act(() => editPreferences.props.onPress());
     expect(props.navigation.navigate).toHaveBeenCalledWith('Preferences');
     const lifetimeCard = tree.root

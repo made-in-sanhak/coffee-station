@@ -38,41 +38,24 @@ test('confirmed app orders retain their actual source label', () => {
   );
 });
 
-test('month totals exclude other months and compute caffeine from recorded days', () => {
+test('month totals exclude other months', () => {
   const records = [
-    {
-      purchasedAt: '2026-10-13T08:42:00',
-      totalAmount: 2000,
-      totalCups: 1,
-      caffeineMg: 150,
-    },
-    {
-      purchasedAt: '2026-10-13T14:10:00',
-      totalAmount: 2500,
-      totalCups: 1,
-      caffeineMg: 150,
-    },
-    {
-      purchasedAt: '2026-10-14T10:00:00',
-      totalAmount: 4000,
-      totalCups: 2,
-      caffeineMg: 200,
-    },
-    {
-      purchasedAt: '2026-11-01T08:42:00',
-      totalAmount: 10000,
-      totalCups: 3,
-      caffeineMg: 400,
-    },
+    { purchasedAt: '2026-10-13T08:42:00', totalAmount: 2000, totalCups: 1 },
+    { purchasedAt: '2026-10-13T14:10:00', totalAmount: 2500, totalCups: 1 },
+    { purchasedAt: '2026-10-14T10:00:00', totalAmount: 4000, totalCups: 2 },
+    { purchasedAt: '2026-11-01T08:42:00', totalAmount: 10000, totalCups: 3 },
   ];
   expect(summarizePurchases(records, 2026, 9)).toEqual({
     totalAmount: 8500,
     totalCups: 4,
     purchaseCount: 3,
-    averageCaffeineMg: 250,
   });
   expect(recordsOnDate(records, '2026-10-13')).toHaveLength(2);
-  expect(summarizePurchases([], 2026, 9).averageCaffeineMg).toBe(0);
+  expect(summarizePurchases([], 2026, 9)).toEqual({
+    totalAmount: 0,
+    totalCups: 0,
+    purchaseCount: 0,
+  });
 });
 
 test('used coupon stays used past its expiry and expiry day stays available', () => {

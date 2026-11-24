@@ -6,7 +6,7 @@ import { tokens, Button, Empty, Screen, formatMoney } from '../../app/ui';
 import type { RootStackScreenProps } from '../../navigation/types';
 import { usePersonalStore } from '../../store/personalStore';
 import { useSessionStore } from '../../store/sessionStore';
-import { CaffeineGauge, RewardAsset } from '../receipt/RewardVisuals';
+import { RewardAsset } from '../receipt/RewardVisuals';
 import { rewardColors as c, rewardStyles as s } from '../receipt/RewardStyles';
 import {
   localDateKey,
@@ -77,27 +77,13 @@ export default function CalendarScreen({
       purchasedAt: record.purchasedAt,
       totalAmount: record.total,
       totalCups: record.quantity,
-      caffeineMg: (record.caffeineMg ?? 0) * record.quantity,
     })),
     year,
     month,
   );
-  const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
-  const monthRecords = purchases.filter(record =>
-    purchaseDateKey(record.purchasedAt).startsWith(monthPrefix),
-  );
-  const noKnownCaffeine =
-    monthRecords.length > 0 &&
-    monthRecords.every(record => record.caffeineMg === null);
   const selected = recordsOnDate(purchases, selectedKey);
   const total = selected.reduce((sum, item) => sum + item.total, 0);
   const cups = selected.reduce((sum, item) => sum + item.quantity, 0);
-  const caffeine = selected.reduce(
-    (sum, item) => sum + (item.caffeineMg ?? 0) * item.quantity,
-    0,
-  );
-  const unknown = selected.some(item => item.caffeineMg === null);
-  const dayLabel = selectedKey === localDateKey(now) ? '오늘' : '선택한 날';
   const knownHistory = [
     ...new Map(
       [...(history.data ?? []), ...purchases].map(record => [record.id, record]),
@@ -164,11 +150,7 @@ export default function CalendarScreen({
       record.cafeName,
       `${record.menuName} · ${record.quantity}잔\n${formatMoney(
         record.total,
-      )} · ${
-        record.caffeineMg === null
-          ? '카페인 미등록'
-          : `${record.caffeineMg * record.quantity}mg`
-      }\n${purchaseSourceLabel(record)}`,
+      )}\n${purchaseSourceLabel(record)}`,
       [
         { text: '닫기', style: 'cancel' },
         ...(record.cafeId
@@ -189,7 +171,7 @@ export default function CalendarScreen({
     );
   };
   return (
-    <Screen navigation={navigation} tab="garage">
+    <Screen navigation={navigation} tab="record">
       <View style={s.content}>
         {personalError && (
           <View style={s.card}>
@@ -242,17 +224,6 @@ export default function CalendarScreen({
           <View style={s.stat}>
             <Text style={s.small}>구매</Text>
             <Text style={s.statValue}>{stats.totalCups}잔</Text>
-          </View>
-          <View style={s.stat}>
-            <Text
-              style={s.small}
-              accessibilityLabel="카페인 평균, 구매 기록이 있는 날의 확인된 함량 기준"
-            >
-              카페인 평균
-            </Text>
-            <Text style={s.statValue}>
-              {noKnownCaffeine ? '—' : `${stats.averageCaffeineMg}mg`}
-            </Text>
           </View>
         </View>
         <View style={st.calendar}>
@@ -308,27 +279,6 @@ export default function CalendarScreen({
               })}
             </View>
           ))}
-        </View>
-        <View style={[s.card, st.gaugeCard]}>
-          <View style={[s.row, s.gap16]}>
-            <CaffeineGauge value={caffeine} day={dayLabel} />
-            <View style={[s.flex, s.gap4]}>
-              <View style={[s.row, s.gap4]}>
-                <RewardAsset name="gauge" />
-                <Text style={s.heading}>카페인 계기판</Text>
-              </View>
-              <Text style={[s.subtitle, st.gaugeValue]}>
-                {dayLabel} {caffeine}mg / 참고 400mg
-              </Text>
-              <Text style={s.small}>
-                {unknown
-                  ? '함량 미등록 메뉴가 포함돼 있어요.'
-                  : selected.length === 0
-                    ? '구매 기록을 추가하면 함량을 볼 수 있어요.'
-                    : '기록된 메뉴의 카페인 함량이에요.'}
-              </Text>
-            </View>
-          </View>
         </View>
         <View style={s.stats}>
           {lifetimeStats.map(({ label, value }) => (
@@ -392,22 +342,11 @@ export default function CalendarScreen({
           label="영수증 등록하기"
           onPress={() => navigation.navigate('Receipt')}
         />
-        <View style={s.row}>
-          <View style={s.flex}>
-            <Button
-              label="쿠폰함"
-              variant="outline"
-              onPress={() => navigation.navigate('Coupons')}
-            />
-          </View>
-          <View style={s.flex}>
-            <Button
-              label="나의 차고"
-              variant="outline"
-              onPress={() => navigation.navigate('Garage')}
-            />
-          </View>
-        </View>
+        <Button
+          label="쿠폰함"
+          variant="outline"
+          onPress={() => navigation.navigate('Coupons')}
+        />
       </View>
     </Screen>
   );
@@ -415,8 +354,6 @@ export default function CalendarScreen({
 
 const st = StyleSheet.create({
   timeWidth: { width: 33 },
-  gaugeCard: { paddingVertical: 14 },
-  gaugeValue: { color: c.brown },
   centeredStat: { alignItems: 'center', paddingHorizontal: 4, gap: 0 },
   calendar: {
     backgroundColor: c.white,

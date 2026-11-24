@@ -58,9 +58,9 @@ type Navigation = {
   canGoBack?: () => boolean;
   popTo?: (...args: any[]) => void;
 };
-export type AppTab = 'map' | 'recommend' | 'receipt' | 'community' | 'garage';
+export type AppTab = 'map' | 'recommend' | 'community' | 'record';
 const tabLabels: Record<AppTab, TabName> = {
-  map: '지도', recommend: '추천', community: '휴게소', garage: '내 기록', receipt: '내 기록',
+  map: '지도', recommend: '추천', community: '휴게소', record: '내 기록',
 };
 const tabRoutes: Record<TabName, string> = {
   지도: 'Map', 추천: 'Recommend', 휴게소: 'Community', '내 기록': 'Calendar',

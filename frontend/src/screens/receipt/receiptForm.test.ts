@@ -43,7 +43,7 @@ test('unchanged OCR timestamp retains seconds and milliseconds for server verifi
   );
 });
 
-test('amount and caffeine validation match supported server limits', () => {
+test('amount validation matches supported server limits and menu caffeine data is not validated', () => {
   const form = createManualDraft();
   form.storeName = '테스트 카페';
   form.items[0] = {
@@ -57,7 +57,8 @@ test('amount and caffeine validation match supported server limits', () => {
   expect(validateReceiptForm(form)).toContain('원 단위');
   form.items[0].quantity = '1';
   form.items[0].caffeineMg = '3001';
-  expect(validateReceiptForm(form)).toContain('3,000mg');
+  expect(validateReceiptForm(form)).toBeNull();
+  expect(parseReceiptForm(form).items[0].caffeineMg).toBeUndefined();
 });
 
 test('invalid calendar dates and negative money cannot be saved', () => {
@@ -77,7 +78,7 @@ test('invalid calendar dates and negative money cannot be saved', () => {
   expect(validateReceiptForm(draft)).toContain('금액');
 });
 
-test('unknown caffeine remains unknown while known caffeine uses quantity', () => {
+test('menu caffeine data passes through without a caffeine total', () => {
   const draft = createManualDraft(new Date(2026, 9, 13, 8, 42));
   draft.storeName = '테스트 카페';
   draft.items = [
@@ -99,10 +100,8 @@ test('unknown caffeine remains unknown while known caffeine uses quantity', () =
     },
   ];
   expect(validateReceiptForm(draft)).toBeNull();
-  expect(parseReceiptForm(draft)).toMatchObject({
-    totalAmount: 7000,
-    totalCups: 3,
-    caffeineMg: 300,
-    hasUnknownCaffeine: true,
-  });
+  const parsed = parseReceiptForm(draft);
+  expect(parsed).toMatchObject({ totalAmount: 7000, totalCups: 3 });
+  expect(parsed).not.toHaveProperty('caffeineMg');
+  expect(parsed.items.map(item => item.caffeineMg)).toEqual([150, undefined]);
 });

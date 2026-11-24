@@ -49,15 +49,15 @@ test('selected group labels on detail screens still return to their root destina
   const map = await renderBar('map');
   await act(() => press(map.tree,'지도'));
   expect(map.nav.popTo).toHaveBeenCalledWith('Map');
-  const garage = await renderBar('garage');
-  await act(() => press(garage.tree,'내 기록'));
-  expect(garage.nav.navigate).toHaveBeenCalledWith('Calendar', undefined, { pop: true });
+  const record = await renderBar('record');
+  await act(() => press(record.tree,'내 기록'));
+  expect(record.nav.navigate).toHaveBeenCalledWith('Calendar', undefined, { pop: true });
 });
 
-test('Map falls back to navigate when popTo is unavailable and receipt selects 내 기록', async () => {
+test('Map falls back to navigate when popTo is unavailable and the record tab selects 내 기록', async () => {
   const nav = { navigate: jest.fn(), goBack: jest.fn() };
   let tree!: Renderer.ReactTestRenderer;
-  await act(() => { tree = Renderer.create(<TabBar active="receipt" navigation={nav} />); });
+  await act(() => { tree = Renderer.create(<TabBar active="record" navigation={nav} />); });
   trees.push(tree);
   await act(() => press(tree,'지도'));
   expect(nav.navigate).toHaveBeenCalledWith('Map');
@@ -67,7 +67,7 @@ test('Map falls back to navigate when popTo is unavailable and receipt selects �
 
 test('shared Screen includes one canonical footer and keeps bottom safe area ownership', async () => {
   let tree!: Renderer.ReactTestRenderer;
-  await act(() => { tree = Renderer.create(<Screen navigation={navigation()} tab="garage"><View /></Screen>); });
+  await act(() => { tree = Renderer.create(<Screen navigation={navigation()} tab="record"><View /></Screen>); });
   trees.push(tree);
   expect(tree.root.findAllByType(BottomTabBar)).toHaveLength(1);
   const safe = tree.root.findAll(node => Array.isArray(node.props.edges) && node.props.edges.includes('bottom'));

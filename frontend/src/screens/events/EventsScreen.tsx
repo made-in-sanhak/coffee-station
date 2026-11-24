@@ -206,13 +206,13 @@ export default function EventsScreen({
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            onPress={() => navigation.navigate('Garage')}
+            onPress={() => navigation.navigate('Calendar')}
             style={[styles.promo, { backgroundColor: P.brownSoft }]}
           >
-            <Asset name="car" />
+            <Asset name="receipt" />
             <View style={s.grow}>
               <Txt size={13} bold color={P.brown}>
-                나의 차고
+                구매 캘린더
               </Txt>
               <Txt size={11} color={P.muted}>
                 커피 기록 확인

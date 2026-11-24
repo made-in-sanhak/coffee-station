@@ -37,7 +37,6 @@ beforeEach(() => {
     favoriteIds: [],
     onboarded: false,
     hydrated: false,
-    selectedCarSkinLevel: null,
     error: null,
   });
 });
@@ -161,23 +160,11 @@ test('a stale hydration read cannot erase a purchase saved while it was pending'
   expect(usePersonalStore.getState().purchases).toEqual([record]);
 });
 
-test('car skin selection persists as a validated personal preference across hydration', async () => {
-  usePersonalStore.setState({ hydrated: true });
-  await usePersonalStore.getState().setCarSkinLevel(3);
-  const stored = (
-    NativeModules.CoffeeDevice.secureSet as jest.Mock
-  ).mock.calls.at(-1)![1];
-  usePersonalStore.setState({ selectedCarSkinLevel: null });
-  (NativeModules.CoffeeDevice.secureGet as jest.Mock).mockResolvedValue(stored);
-  await usePersonalStore.getState().hydrate();
-  expect(usePersonalStore.getState().selectedCarSkinLevel).toBe(3);
-});
-
-test('unsupported saved skin is rejected without replacing the encrypted snapshot', async () => {
+test('a saved snapshot from the removed garage feature still loads', async () => {
   (NativeModules.CoffeeDevice.secureGet as jest.Mock).mockResolvedValue(
-    JSON.stringify({ selectedCarSkinLevel: 99 }),
+    JSON.stringify({ onboarded: true, selectedCarSkinLevel: 99 }),
   );
   await usePersonalStore.getState().hydrate();
-  expect(usePersonalStore.getState().hydrated).toBe(false);
-  expect(NativeModules.CoffeeDevice.secureSet).not.toHaveBeenCalled();
+  expect(usePersonalStore.getState()).toMatchObject({ hydrated: true, onboarded: true, error: null });
+  expect(usePersonalStore.getState()).not.toHaveProperty('selectedCarSkinLevel');
 });

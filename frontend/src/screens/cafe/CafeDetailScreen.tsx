@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Linking,
@@ -33,65 +34,41 @@ type MenuCategory = (typeof MENU_CATEGORIES)[number];
 function getMenuCategory(menu: Menu): MenuCategory {
   const category = (menu.category ?? '').trim().toUpperCase();
 
-  if (
-    category.includes('DECAF') ||
-    category.includes('DECAFFEINE') ||
-    category.includes('디카페인')
-  ) {
+  if (['DECAF', 'DECAFFEINE', '디카페인'].includes(category)) {
     return '디카페인';
   }
-
-  if (
-    category.includes('TEA') ||
-    category === '차' ||
-    category.includes('티')
-  ) {
-    return '차';
-  }
-
-  if (
-    ['ADE', 'BEVERAGE', 'DRINK', 'NON_COFFEE', 'NON-COFFEE'].some(value =>
-      category.includes(value),
-    ) ||
-    category.includes('음료') ||
-    category.includes('에이드')
-  ) {
+  if (['COFFEE', '커피'].includes(category)) return '커피';
+  if (['BEVERAGE', 'ADE', 'DRINK', 'NON_COFFEE', 'NON-COFFEE', '음료', '에이드'].includes(category)) {
     return '에이드·음료';
   }
-
-  if (category.includes('COFFEE') || category.includes('커피')) {
-    return '커피';
-  }
+  if (['TEA', '차', '티'].includes(category)) return '차';
 
   const name = menu.name.toLowerCase().replace(/\s/g, '');
 
-  if (name.includes('디카페인') || name.includes('decaf')) {
+  if (/디카페인|decaf/.test(name)) return '디카페인';
+
+  if (
+    menu.caffeineMg !== null &&
+    Number.isFinite(menu.caffeineMg) &&
+    menu.caffeineMg >= 0 &&
+    menu.caffeineMg <= 10
+  ) {
     return '디카페인';
   }
 
-  if (
-    /아메리카노|카페라떼|카페모카|카푸치노|마키아토|에스프레소|콜드브루|바닐라라떼|카페오레/.test(
-      name,
-    )
-  ) {
+  if (/아메리카노|카페라떼|카페모카|카푸치노|마키아토|에스프레소|콜드브루|바닐라라떼|카페오레/.test(name)) {
     return '커피';
   }
 
-  if (
-    /에이드|스무디|주스|쥬스|아이스티|초코|밀크티|프라페|쉐이크|레몬티|유자차|녹차|홍차|허브티|캐모마일|페퍼민트/.test(
-      name,
-    )
-  ) {
-    if (/티|차|녹차|홍차|캐모마일|페퍼민트/.test(name)) {
-      return '차';
-    }
+  if (/밀크티|아이스티|녹차|홍차|허브티|캐모마일|페퍼민트|유자차|레몬티/.test(name)) {
+    return '차';
+  }
 
+  if (/에이드|스무디|주스|쥬스|초코|프라페|쉐이크/.test(name)) {
     return '에이드·음료';
   }
 
-  if (/티|차/.test(name)) {
-    return '차';
-  }
+  if (/티|차/.test(name)) return '차';
 
   return '커피';
 }
@@ -122,18 +99,46 @@ export default function CafeDetailScreen({
     : suppliedCafe;
 
   const menus = menuResource.data ?? cafe?.menus ?? [];
+  const availableMenus = useMemo(
+    () => menus.filter(menu => menu.available !== false),
+    [menus],
+  );
+
   const [selectedCategory, setSelectedCategory] =
     useState<MenuCategory>('커피');
+  const [showAllMenus, setShowAllMenus] = useState(false);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<MenuCategory, number> = {
+      커피: 0,
+      디카페인: 0,
+      '에이드·음료': 0,
+      차: 0,
+    };
+
+    availableMenus.forEach(menu => {
+      counts[getMenuCategory(menu)] += 1;
+    });
+
+    return counts;
+  }, [availableMenus]);
 
   useEffect(() => {
-    setSelectedCategory('커피');
-  }, [cafeId]);
+    const firstAvailable = MENU_CATEGORIES.find(
+      category => categoryCounts[category] > 0,
+    );
 
-  const availableMenus = menus.filter(menu => menu.available !== false);
+    setSelectedCategory(firstAvailable ?? '커피');
+    setShowAllMenus(false);
+  }, [cafeId, categoryCounts]);
 
   const filteredMenus = availableMenus.filter(
     menu => getMenuCategory(menu) === selectedCategory,
   );
+
+  const visibleMenus = showAllMenus
+    ? filteredMenus
+    : filteredMenus.slice(0, 3);
 
   const deal = dealResource.data?.find(
     item =>
@@ -329,103 +334,126 @@ export default function CafeDetailScreen({
             />
           </View>
 
-          <Pressable
-            testID="cafe-menu-compare"
-            accessibilityRole="button"
-            accessibilityLabel="이 카페 메뉴 가격 비교"
-            onPress={() =>
-              navigation.navigate('Compare', { menu: menus[0]?.name })
-            }
-          >
-            <Card style={styles.menuCard}>
-              <View style={styles.cardTitle}>
-                <Text style={styles.sectionTitle}>메뉴 가격</Text>
-                {cafe.verified ? (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>점주 확인</Text>
-                  </View>
-                ) : null}
-              </View>
+          <Card style={styles.menuCard}>
+            <View style={styles.cardTitle}>
+              <Text style={styles.sectionTitle}>메뉴 가격</Text>
+              {cafe.verified ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>점주 확인</Text>
+                </View>
+              ) : null}
+            </View>
 
-              <View style={styles.categoryList}>
-                {MENU_CATEGORIES.map(category => {
-                  const selected = selectedCategory === category;
+            <View style={styles.categoryList}>
+              {MENU_CATEGORIES.map(category => {
+                const selected = selectedCategory === category;
+                const disabled = categoryCounts[category] === 0;
 
-                  return (
-                    <Pressable
-                      key={category}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected }}
-                      onPress={() => setSelectedCategory(category)}
+                return (
+                  <Pressable
+                    key={category}
+                    disabled={disabled}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected, disabled }}
+                    onPress={() => {
+                      setSelectedCategory(category);
+                      setShowAllMenus(false);
+                    }}
+                    style={[
+                      styles.categoryChip,
+                      selected && styles.categoryChipSelected,
+                      disabled && styles.categoryChipDisabled,
+                    ]}
+                  >
+                    <Text
                       style={[
-                        styles.categoryChip,
-                        selected && styles.categoryChipSelected,
+                        styles.categoryText,
+                        selected && styles.categoryTextSelected,
+                        disabled && styles.categoryTextDisabled,
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.categoryText,
-                          selected && styles.categoryTextSelected,
-                        ]}
-                      >
-                        {category}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+                      {category}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
 
-              {availableMenus.length === 0 ? (
-                <View style={styles.unregistered}>
-                  <Text style={styles.meta}>등록된 메뉴 가격이 없습니다.</Text>
-                  <Text style={styles.menuMeta}>
-                    가격이 확인되면 메뉴별로 비교할 수 있어요.
-                  </Text>
-                </View>
-              ) : filteredMenus.length > 0 ? (
-                filteredMenus.map((menu, index) => (
-                  <React.Fragment key={menu.id}>
-                    {index > 0 ? <View style={styles.divider} /> : null}
-                    <View style={styles.menuRow}>
-                      <View style={styles.menuName}>
-                        <Text style={styles.menuTitle}>{menu.name}</Text>
-                        <Text style={styles.menuMeta}>
-                          {menu.size} ·{' '}
-                          {menu.temperature === 'ICE'
-                            ? '아이스'
-                            : menu.temperature === 'HOT'
-                              ? '따뜻하게'
-                              : menu.temperature}
-                        </Text>
-                      </View>
-                      <Text style={styles.menuPrice}>
-                        {formatMoney(menu.price)}
-                      </Text>
-                    </View>
-                  </React.Fragment>
-                ))
-              ) : (
-                <View style={styles.unregistered}>
-                  <Text style={styles.meta}>
-                    해당 카테고리에 등록된 메뉴가 없습니다.
-                  </Text>
-                </View>
-              )}
-
-              <View style={styles.source}>
-                <ExploreIcon name="shield" />
-                <Text style={styles.sourceText}>
-                  {source
-                    ? `출처: ${source.source ?? '미확인'}${
-                        source.checkedAt
-                          ? ` · 확인일 ${formatDate(source.checkedAt)}`
-                          : ''
-                      }`
-                    : '출처와 확인일은 가격 등록 후 표시됩니다.'}
+            {availableMenus.length === 0 ? (
+              <View style={styles.unregistered}>
+                <Text style={styles.meta}>등록된 메뉴 가격이 없습니다.</Text>
+                <Text style={styles.menuMeta}>
+                  가격이 확인되면 메뉴별로 비교할 수 있어요.
                 </Text>
               </View>
-            </Card>
-          </Pressable>
+            ) : filteredMenus.length > 0 ? (
+              <>
+                <Pressable
+                  testID="cafe-menu-compare"
+                  accessibilityRole="button"
+                  accessibilityLabel="이 카페 메뉴 가격 비교"
+                  onPress={() =>
+                    navigation.navigate('Compare', {
+                      menu: filteredMenus[0]?.name,
+                    })
+                  }
+                >
+                  {visibleMenus.map((menu, index) => (
+                    <React.Fragment key={menu.id}>
+                      {index > 0 ? <View style={styles.divider} /> : null}
+                      <View style={styles.menuRow}>
+                        <View style={styles.menuName}>
+                          <Text style={styles.menuTitle}>{menu.name}</Text>
+                          <Text style={styles.menuMeta}>
+                            {menu.size} ·{' '}
+                            {menu.temperature === 'ICE'
+                              ? '아이스'
+                              : menu.temperature === 'HOT'
+                                ? '따뜻하게'
+                                : menu.temperature}
+                          </Text>
+                        </View>
+                        <Text style={styles.menuPrice}>
+                          {formatMoney(menu.price)}
+                        </Text>
+                      </View>
+                    </React.Fragment>
+                  ))}
+                </Pressable>
+
+                {filteredMenus.length > 3 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setShowAllMenus(value => !value)}
+                    style={styles.moreButton}
+                  >
+                    <Text style={styles.moreButtonText}>
+                      {showAllMenus ? '접기' : `전체 보기 (${filteredMenus.length}개)`}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </>
+            ) : (
+              <View style={styles.unregistered}>
+                <Text style={styles.meta}>
+                  해당 카테고리에 등록된 메뉴가 없습니다.
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.source}>
+              <ExploreIcon name="shield" />
+              <Text style={styles.sourceText}>
+                {source
+                  ? `출처: ${source.source ?? '미확인'}${
+                      source.checkedAt
+                        ? ` · 확인일 ${formatDate(source.checkedAt)}`
+                        : ''
+                    }`
+                  : '출처와 확인일은 가격 등록 후 표시됩니다.'}
+              </Text>
+            </View>
+          </Card>
 
           {menus.length ? (
             <Button
@@ -649,6 +677,10 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.green,
     borderColor: tokens.green,
   },
+  categoryChipDisabled: {
+    backgroundColor: '#F5F3F0',
+    borderColor: '#EEEAE5',
+  },
   categoryText: {
     fontFamily: tokens.font,
     fontSize: 12,
@@ -657,6 +689,9 @@ const styles = StyleSheet.create({
   categoryTextSelected: {
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  categoryTextDisabled: {
+    color: '#B8B2AA',
   },
   menuRow: {
     flexDirection: 'row',
@@ -686,6 +721,16 @@ const styles = StyleSheet.create({
   },
   divider: { height: 1, backgroundColor: '#EAE3D9' },
   unregistered: { paddingVertical: 20, gap: 6 },
+  moreButton: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  moreButtonText: {
+    fontFamily: tokens.font,
+    fontSize: 13,
+    fontWeight: '700',
+    color: tokens.green,
+  },
   source: {
     paddingHorizontal: 10,
     paddingVertical: 8,

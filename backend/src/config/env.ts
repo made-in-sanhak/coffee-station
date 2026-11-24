@@ -36,6 +36,8 @@ export function loadSettings(values: NodeJS.ProcessEnv) {
       user: values.DB_USER ?? 'coffee',
       password: values.DB_PASSWORD ?? '',
     },
+    devDbAutoSetup: nodeEnv === 'development' && values.DEV_DB_AUTO_SETUP !== 'false',
+    devSeedHaengsin: values.DEV_SEED_HAENGSIN !== 'false',
     jwtSecret: values.JWT_SECRET ?? '',
     kakao: {
       restApiKey: values.KAKAO_REST_API_KEY ?? '',

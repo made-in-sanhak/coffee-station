@@ -3,6 +3,7 @@ import Renderer, { act } from 'react-test-renderer';
 import RecommendScreen from '../src/screens/recommend/RecommendScreen';
 import { native } from '../src/app/native';
 import { api } from '../src/app/api';
+import { DEFAULT_PREFERENCES } from '../src/app/domain';
 import { Button, Chip } from '../src/app/ui';
 import { usePersonalStore } from '../src/store/personalStore';
 jest.mock('react-native-safe-area-context', () => ({
@@ -47,6 +48,10 @@ const render = async () => {
 beforeEach(() => {
   trees = [];
   jest.clearAllMocks();
+  usePersonalStore.setState({
+    onboarded: false,
+    preferences: DEFAULT_PREFERENCES,
+  });
 });
 afterEach(async () => {
   await act(() => {
@@ -66,6 +71,86 @@ test('recognized speech becomes the editable recommendation request', async () =
   expect(input().props.value).toBe('조용한 카페를 찾아줘');
   expect(navigation.navigate).not.toHaveBeenCalled();
 });
+
+test.each(['fresh', 'saved'])(
+  'a new recommendation with %s preferences starts without selected chips',
+  async source => {
+    if (source === 'saved') {
+      usePersonalStore.setState({
+        onboarded: true,
+        preferences: {
+          ...DEFAULT_PREFERENCES,
+          priceMax: 3000,
+          purposes: ['매장 이용'],
+          tastes: ['산미 적은'],
+          travelMode: 'drive',
+          travelMinutes: 10,
+        },
+      });
+    }
+    jest.mocked(native.getLocation).mockResolvedValue({
+      latitude: 37.5,
+      longitude: 127,
+    });
+    const { tree, navigation } = await render();
+    const action = (label: string) =>
+      tree.root.findAll(
+        node =>
+          node.props.label === label &&
+          typeof node.props.onPress === 'function',
+      )[0].props.onPress;
+
+    const selectedChips = () =>
+      tree.root
+        .findAllByType(Chip)
+        .filter(chip => chip.props.selected)
+        .map(chip => chip.props.label);
+    expect(selectedChips()).toEqual([]);
+    await act(async () => {
+      await action('조건에 맞는 카페 찾기')();
+    });
+    expect(navigation.navigate).toHaveBeenLastCalledWith(
+      'RecommendationResult',
+      {
+        request: expect.objectContaining({
+          budget: null,
+          purposes: [],
+          tastes: [],
+          travelMode: 'walk',
+          travelMinutes: 10,
+        }),
+      },
+    );
+
+    await act(() => {
+      action('5천원 이하')();
+      action('테이크아웃')();
+      action('고소한')();
+      action('도보 5분')();
+    });
+    expect(selectedChips()).toEqual([
+      '5천원 이하',
+      '테이크아웃',
+      '고소한',
+      '도보 5분',
+    ]);
+    await act(async () => {
+      await action('조건에 맞는 카페 찾기')();
+    });
+    expect(navigation.navigate).toHaveBeenLastCalledWith(
+      'RecommendationResult',
+      {
+        request: expect.objectContaining({
+          budget: 5000,
+          purposes: ['테이크아웃'],
+          tastes: ['고소한'],
+          travelMode: 'walk',
+          travelMinutes: 5,
+        }),
+      },
+    );
+  },
+);
 
 test('repeated microphone presses start one recognizer and limit input to 200 characters', async () => {
   let resolve!: (value: string) => void;

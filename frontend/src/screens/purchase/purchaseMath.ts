@@ -2,7 +2,6 @@ export interface PurchaseSummaryInput {
   purchasedAt: string;
   totalAmount: number;
   totalCups: number;
-  caffeineMg: number;
 }
 
 export function localDateKey(date: Date) {
@@ -50,19 +49,10 @@ export function summarizePurchases(
   const selected = records.filter(record =>
     purchaseDateKey(record.purchasedAt).startsWith(prefix),
   );
-  const dates = new Set(
-    selected.map(record => purchaseDateKey(record.purchasedAt)),
-  );
   return {
     totalAmount: selected.reduce((sum, record) => sum + record.totalAmount, 0),
     totalCups: selected.reduce((sum, record) => sum + record.totalCups, 0),
     purchaseCount: selected.length,
-    averageCaffeineMg: dates.size
-      ? Math.round(
-          selected.reduce((sum, record) => sum + record.caffeineMg, 0) /
-            dates.size,
-        )
-      : 0,
   };
 }
 

@@ -125,12 +125,6 @@ export function validateReceiptForm(form: ReceiptForm): string | null {
       return `${prefix} 금액과 수량을 확인해 주세요. 한 잔의 가격은 원 단위여야 해요.`;
     if (numeric(item.amount) / numeric(item.quantity) > 1000000)
       return `${prefix} 한 잔의 가격은 1,000,000원까지 입력할 수 있어요.`;
-    if (
-      item.caffeineMg.trim() &&
-      (!/^\d+(\.\d+)?$/.test(item.caffeineMg.trim()) ||
-        numeric(item.caffeineMg) > 3000)
-    )
-      return `${prefix} 카페인을 0~3,000mg으로 입력해 주세요.`;
   }
   return null;
 }
@@ -143,7 +137,12 @@ export function parseReceiptForm(form: ReceiptForm) {
     size: item.size.trim() || undefined,
     quantity: numeric(item.quantity),
     amount: numeric(item.amount),
-    caffeineMg: item.caffeineMg.trim() ? numeric(item.caffeineMg) : undefined,
+    // 매칭된 메뉴의 caffeineMg 는 메뉴 데이터로만 전달합니다. 형식이 맞지 않으면 미등록으로 둡니다.
+    caffeineMg:
+      /^\d+(\.\d+)?$/.test(item.caffeineMg.trim()) &&
+      numeric(item.caffeineMg) <= 3000
+        ? numeric(item.caffeineMg)
+        : undefined,
     matched: item.matched,
   }));
   return {
@@ -152,10 +151,5 @@ export function parseReceiptForm(form: ReceiptForm) {
     items,
     totalAmount: items.reduce((sum, item) => sum + item.amount, 0),
     totalCups: items.reduce((sum, item) => sum + item.quantity, 0),
-    caffeineMg: items.reduce(
-      (sum, item) => sum + (item.caffeineMg ?? 0) * item.quantity,
-      0,
-    ),
-    hasUnknownCaffeine: items.some(item => item.caffeineMg === undefined),
   };
 }

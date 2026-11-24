@@ -23,6 +23,7 @@ import {
 } from './SocialParts';
 import { readableError, relativeTime } from './socialModel';
 import ReviewPhotos from './ReviewPhotos';
+import { requestCommunityLogin } from './communityLogin';
 
 export default function ReviewDetailScreen({
   navigation,
@@ -47,7 +48,7 @@ export default function ReviewDetailScreen({
   };
   const like = async () => {
     if (!token) {
-      navigation.navigate('Login');
+      requestCommunityLogin(navigation, { name: 'ReviewDetail', params: route.params }, setError);
       return;
     }
     if (busy) return;
@@ -64,7 +65,7 @@ export default function ReviewDetailScreen({
   };
   const comment = async () => {
     if (!token) {
-      navigation.navigate('Login');
+      requestCommunityLogin(navigation, { name: 'ReviewDetail', params: route.params }, setError);
       return;
     }
     if (busy) return;

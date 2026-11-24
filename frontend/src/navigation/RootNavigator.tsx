@@ -11,7 +11,6 @@ import ParkPreferencesRoute from '../integration/ParkPreferencesRoute';
 import NotificationScreen from '../screens/map/NotificationScreen';
 import { useAuthStore } from '../store/authStore';
 import { usePreferenceStore } from '../store/preferenceStore';
-import { useSessionStore } from '../store/sessionStore';
 import SettingsScreen from '../screens/settings/SettingsScreen';
 import LocationPermissionScreen from '../screens/onboarding/LocationPermissionScreen';
 import CafeDetailScreen from '../screens/cafe/CafeDetailScreen';
@@ -28,7 +27,6 @@ import ReceiptScreen from '../screens/receipt/ReceiptScreen';
 import ReceiptReviewScreen from '../screens/receipt/ReceiptReviewScreen';
 import CalendarScreen from '../screens/purchase/CalendarScreen';
 import CouponsScreen from '../screens/coupon/CouponsScreen';
-import GarageScreen from '../screens/mypage/GarageScreen';
 import OwnerScreen from '../screens/owner/OwnerScreen';
 import OwnerMenusScreen from '../screens/owner/OwnerMenusScreen';
 import OwnerOrdersScreen from '../screens/owner/OwnerOrdersScreen';
@@ -40,8 +38,7 @@ import EventsScreen from '../screens/events/EventsScreen';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function RootNavigator() {
   const isLoggedIn = useAuthStore(state => state.accessToken !== null);
-  const serviceUser = useSessionStore(state => state.user);
-  const authBranch = isLoggedIn ? (serviceUser ? 'service' : 'preview') : 'guest';
+  const sessionRevision = useAuthStore(state => state.sessionRevision);
   const isCompleted = usePreferenceStore(state => state.isCompleted);
   const hasHydrated = usePreferenceStore(state => state.hasHydrated);
   const completeSetup = usePreferenceStore(state => state.completeSetup);
@@ -53,13 +50,22 @@ export default function RootNavigator() {
         contentStyle: { backgroundColor: tokens.bg },
       }}
     >
-      {isLoggedIn ? <>
+      {isLoggedIn && <Stack.Group navigationKey={`app-${sessionRevision}`}>
         {!isCompleted && <Stack.Screen name="Preference">
           {({ navigation }) => <PreferenceScreen
             onSkip={() => { completeSetup(null); navigation.replace('Map'); }}
             onStart={preferences => { completeSetup(preferences); navigation.replace('Map'); }} />}
         </Stack.Screen>}
-        <Stack.Screen name="Map" component={MapScreen} />
+        <Stack.Screen
+          name="Map"
+          component={MapScreen}
+          listeners={({ navigation }) => ({
+            focus: () => {
+              const destination = useAuthStore.getState().takeLoginReturn();
+              if (destination) navigation.navigate(destination);
+            },
+          })}
+        />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="Preferences" component={ParkPreferencesRoute} />
         <Stack.Screen name="Notification" component={NotificationScreen} />
@@ -87,7 +93,6 @@ export default function RootNavigator() {
       <Stack.Screen name="ReceiptReview" component={ReceiptReviewScreen} />
       <Stack.Screen name="Calendar" component={CalendarScreen} />
       <Stack.Screen name="Coupons" component={CouponsScreen} />
-      <Stack.Screen name="Garage" component={GarageScreen} />
       <Stack.Screen name="Owner" component={OwnerScreen} />
       <Stack.Screen name="OwnerMenus" component={OwnerMenusScreen} />
       <Stack.Screen name="OwnerOrders" component={OwnerOrdersScreen} />
@@ -96,13 +101,20 @@ export default function RootNavigator() {
       <Stack.Screen name="OrderComplete" component={OrderCompleteScreen} />
       <Stack.Screen name="PaymentFailure" component={PaymentFailureScreen} />
       <Stack.Screen name="Events" component={EventsScreen} />
-      <Stack.Screen navigationKey={authBranch} name="Login" component={LoginScreen} />
-      <Stack.Screen navigationKey={authBranch} name="KakaoLogin" component={KakaoLoginScreen} options={{ headerShown: true, title: '카카오 로그인' }} />
-      </> : <>
-        <Stack.Screen navigationKey={authBranch} name="Login" component={LoginScreen} />
-        <Stack.Screen navigationKey={authBranch} name="KakaoLogin" component={KakaoLoginScreen} options={{ headerShown: true, title: '카카오 로그인' }} />
-      </>}
-      {__DEV__ && <Stack.Screen name="MidtermTest" component={MidtermTestScreen} />}
+      </Stack.Group>}
+
+      <Stack.Group navigationKey={isLoggedIn ? `auth-${sessionRevision}` : 'guest'}>
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen
+          name="KakaoLogin"
+          component={KakaoLoginScreen}
+          options={{ headerShown: true, title: '카카오 로그인' }}
+        />
+      </Stack.Group>
+
+      {__DEV__ && (
+        <Stack.Screen name="MidtermTest" component={MidtermTestScreen} />
+      )}
     </Stack.Navigator>
   );
 }

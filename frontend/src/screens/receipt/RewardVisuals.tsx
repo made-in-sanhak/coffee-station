@@ -68,31 +68,6 @@ const assets = {
     width: 13,
     height: 6,
   },
-  car: {
-    source: require('../../assets/figma/rewards/1819f.png'),
-    width: 22,
-    height: 22,
-  },
-  lock: {
-    source: require('../../assets/figma/rewards/a470c.png'),
-    width: 22,
-    height: 22,
-  },
-  carIllustration: {
-    source: require('../../assets/figma/rewards/0aaa9.png'),
-    width: 220,
-    height: 110,
-  },
-  gauge: {
-    source: require('../../assets/figma/rewards/f86ee.png'),
-    width: 16,
-    height: 16,
-  },
-  gaugeBackground: {
-    source: require('../../assets/figma/rewards/a9e13.png'),
-    width: 120,
-    height: 60,
-  },
 };
 
 export function RewardAsset({ name }: { name: keyof typeof assets }) {
@@ -105,6 +80,7 @@ export function RewardAsset({ name }: { name: keyof typeof assets }) {
     />
   );
 }
+
 
 const receiptBars = [
   1, 2, 1, 1, 3, 1, 2, 2, 1, 3, 1, 2, 1, 1, 3, 2, 1, 1, 2, 3, 1, 2, 1, 1, 3, 1,

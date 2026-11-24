@@ -9,6 +9,7 @@ import { usePreferenceStore } from '../src/store/preferenceStore';
 jest.mock('@react-navigation/native-stack', () => ({
   createNativeStackNavigator: () => ({
     Navigator: ({ children }: { children: React.ReactNode }) => children,
+    Group: ({ children }: { children: React.ReactNode }) => children,
     Screen: () => null,
   }),
 }));
@@ -50,8 +51,9 @@ test('Park preference skip retains flow and preview private-action login routes 
   await act(() => element.props.onSkip());
   expect(usePreferenceStore.getState().preferences).toBeNull();
   expect(navigation.replace).toHaveBeenCalledWith('Map');
-  for (const name of ['Map','Login','KakaoLogin','LocationPermission','Recommend','Community','Garage','Receipt','CafeDetail','Order'])
+  for (const name of ['Map','Login','KakaoLogin','LocationPermission','Recommend','Community','Calendar','Receipt','CafeDetail','Order'])
     expect(routes(tree!)).toContain(name);
+  expect(routes(tree!)).not.toContain('Garage');
   await act(() => useAuthStore.getState().logout());
   expect(routes(tree!)).toEqual(['Login', 'KakaoLogin', 'MidtermTest']);
   await act(() => tree!.unmount());

@@ -1,4 +1,4 @@
--- 001: 회원·refresh 토큰 테이블 추가 (카카오 로그인 → 서비스 JWT)
+-- 002: 회원·refresh 토큰 테이블 추가 (카카오 로그인 → 서비스 JWT)
 -- 대상: 이미 schema.sql 을 적용한 coffee_station DB. 신규 DB는 schema.sql 에 포함되어 있어 실행하지 않아도 됩니다.
 -- 선행 조건: 없음. 기존 테이블·데이터를 바꾸지 않고 새 테이블만 만듭니다. (IF NOT EXISTS 라 다시 실행해도 안전)
 -- 검증: SHOW TABLES LIKE 'users'; SHOW TABLES LIKE 'refresh_tokens';

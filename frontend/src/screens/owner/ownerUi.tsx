@@ -65,7 +65,6 @@ const images = {
   homeCoffee: [require('../../assets/figma/owner/4f028.png'), 30, 30],
   star: [require('../../assets/figma/owner/76a51.png'), 12, 12],
   gift: [require('../../assets/figma/owner/333e4.png'), 20, 20],
-  car: [require('../../assets/figma/owner/a7ec1.png'), 20, 20],
   popupEllipse: [require('../../assets/figma/owner/efd71.png'), 200, 200],
   popupCoffee: [require('../../assets/figma/owner/43fcb.png'), 120, 120],
   zap: [require('../../assets/figma/owner/ad56c.png'), 14, 14],

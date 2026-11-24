@@ -9,6 +9,8 @@ import { usePersonalStore } from './src/store/personalStore';
 import { useConfigStore } from './src/store/configStore';
 import KakaoSettingsStorage from './src/components/settings/KakaoSettingsStorage';
 import ParkStateBridge from './src/integration/ParkStateBridge';
+import OwnerInviteLinkBridge from './src/integration/OwnerInviteLinkBridge';
+import { navigationRef } from './src/navigation/navigationRef';
 
 function App() {
   useEffect(() => { void Promise.allSettled([
@@ -20,7 +22,8 @@ function App() {
         <KakaoSettingsStorage />
         <ParkStateBridge />
         <StatusBar barStyle="dark-content" />
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
+          <OwnerInviteLinkBridge />
           <RootNavigator />
         </NavigationContainer>
       </SafeAreaProvider>

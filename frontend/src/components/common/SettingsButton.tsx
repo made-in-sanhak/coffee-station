@@ -11,7 +11,7 @@ export default function SettingsButton({ onPress }: Props) {
     <Pressable
       testID="open-settings"
       accessibilityRole="button"
-      accessibilityLabel="카카오 키 설정"
+      accessibilityLabel="설정"
       onPress={onPress}
       style={({ pressed }) => [styles.button, pressed && styles.pressed]}
     >

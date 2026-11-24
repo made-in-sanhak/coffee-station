@@ -32,7 +32,7 @@
 - **토큰**: access 토큰은 HS256 JWT(1시간, `sub`=회원 ID, `role`). refresh 토큰은 무작위 값(14일)이며 DB에는 SHA-256 해시만 저장한다(`users`, `refresh_tokens` 테이블).
 - **오류**: `code` 누락·`redirectUri` 불일치·`refreshToken` 누락은 400. 카카오 교환 실패(예: 시크릿 누락 KOE010, 만료된 인가 코드)·만료/폐기된 refresh 토큰·유효하지 않은 access 토큰은 401. 카카오 설정 또는 `JWT_SECRET`이 없으면 500, DB를 쓸 수 없으면 503.
 - **로그인 필요한 API 만들기**: 라우터에 `requireAuth`(`backend/src/middlewares/requireAuth.ts`)를 붙이고 `authOf(res).userId`로 회원 ID를 꺼낸다.
-- **DB 준비**: 새 DB는 `backend/sql/schema.sql`, 기존 DB는 `backend/sql/migrations/001_auth_users.sql`을 적용한다.
+- **DB 준비**: 새 DB는 `backend/sql/schema.sql`, 기존 DB는 `backend/sql/migrations/002_auth_users.sql`을 적용한다.
 
 ## 개발용 추천 탭 경로 (2026-11-11)
 

@@ -8,6 +8,10 @@ export interface QuotaStore {
   reserve(userId: string, policy: QuotaPolicy): Promise<Reservation>;
   release(userId: string, leaseId: string): Promise<void>;
 }
+export function quotaDayStart(time: number): number {
+  // Daily budgets reset at midnight in Korea (UTC+9).
+  return Math.floor((time + 9 * 3600000) / 86400000) * 86400000 - 9 * 3600000;
+}
 export class QuotaExceeded extends AppError {
   constructor(public readonly retryAfterSeconds: number) { super(429, 'AI 호출 제한에 도달했습니다.'); }
 }
@@ -34,7 +38,7 @@ export class MockQuotaStore implements QuotaStore {
   private users = new Map<string, { attempts: number[]; leases: Map<string, number> }>();
   constructor(private now: () => number = Date.now) {}
   async reserve(userId: string, p: QuotaPolicy): Promise<Reservation> {
-    const time = this.now(), day = Math.floor(time / 86400000) * 86400000;
+    const time = this.now(), day = quotaDayStart(time);
     const state = this.users.get(userId) ?? { attempts: [], leases: new Map<string, number>() };
     state.attempts = state.attempts.filter(t => t >= Math.min(day, time - 60000));
     for (const [id, expiry] of state.leases) { if (expiry <= time) { state.leases.delete(id); } }

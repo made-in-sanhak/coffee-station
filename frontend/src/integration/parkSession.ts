@@ -4,15 +4,17 @@ import type { User } from '../types/auth';
 export const isParkMockToken = (token: string | null | undefined) =>
   typeof token === 'string' && /^mock(?:-|$)/i.test(token);
 
-export function classifyParkSession(value: {
-  accessToken: string | null;
-  refreshToken: string | null;
-  user: User | null;
-}): AuthSession | null {
-  const { accessToken, refreshToken, user } = value;
-  if (!accessToken?.trim() || !refreshToken?.trim() ||
+export function classifyParkSession(value: unknown): AuthSession | null {
+  if (!value || typeof value !== 'object') return null;
+  const { accessToken, refreshToken, user } = value as {
+    accessToken?: unknown;
+    refreshToken?: unknown;
+    user?: Partial<User> | null;
+  };
+  if (typeof accessToken !== 'string' || !accessToken.trim() ||
+      typeof refreshToken !== 'string' || !refreshToken.trim() ||
       isParkMockToken(accessToken) || isParkMockToken(refreshToken) ||
-      !user || !Number.isSafeInteger(user.id) || user.id < 1 ||
+      !user || typeof user.id !== 'number' || !Number.isSafeInteger(user.id) || user.id < 1 ||
       typeof user.nickname !== 'string' || !user.nickname.trim() ||
       (user.profileImageUrl !== null && typeof user.profileImageUrl !== 'string')) return null;
   return { accessToken, refreshToken,

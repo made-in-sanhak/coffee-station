@@ -7,15 +7,15 @@ process.env.NODE_ENV='test';
 process.env.EXTRACTION_MODE='mock';
 process.env.JWT_SECRET=randomBytes(32).toString('hex');
 const secret=process.env.JWT_SECRET;
-const { verifyAccessToken }=require('../dist/modules/community/auth');
+const { verifyAccessToken,signAccessToken }=require('../dist/modules/auth/tokens');
 const sign=(sub,extra={})=>{
  const now=Math.floor(Date.now()/1000);
- const parts=[{alg:'HS256',typ:'JWT'},{sub,iss:'coffee-station',aud:'coffee-station-app',token_use:'access',sid:'11111111-1111-4111-8111-111111111111',iat:now,exp:now+600,...extra}].map(v=>Buffer.from(JSON.stringify(v)).toString('base64url'));
- return [...parts,createHmac('sha256',secret).update(parts.join('.')).digest('base64url')].join('.');
+ const parts=[{alg:'HS256',typ:'JWT'},{sub,iss:'coffee-station',aud:'coffee-station-app',role:'USER',typ:'access',sid:'11111111-1111-4111-8111-111111111111',iat:now,exp:now+600,...extra}].map(v=>Buffer.from(JSON.stringify(v)).toString('base64url'));
+ return [...parts,createHmac('sha256',createHmac('sha256',secret).update('coffee-station/auth/access-token/v1').digest()).update(parts.join('.')).digest('base64url')].join('.');
 };
 test('service access-token signature, identity, expiry and token purpose',()=>{
- assert.equal(verifyAccessToken(sign('1'),secret),'1');
- for(const token of [sign('1',{exp:0}),sign('1',{token_use:'refresh'}),sign('1',{aud:'other'}),sign('1',{sub:'1 OR 1=1'}),sign('1',{nbf:9999999999}),'mock-access-token',sign('1')+'x'])assert.throws(()=>verifyAccessToken(token,secret));
+ assert.equal(verifyAccessToken(sign('1')).userId,1);
+ for(const token of [sign('1',{exp:0}),sign('1',{typ:'refresh'}),sign('1',{aud:'other'}),sign('1',{sub:'1 OR 1=1'}),sign('1',{nbf:9999999999}),'mock-access-token',sign('1')+'x'])assert.equal(verifyAccessToken(token),null);
 });
 test('comparison validation rejects mismatched and invalid conditions',()=>{
  const { comparisonQuery }=require('../dist/modules/community/cafes');
@@ -28,7 +28,7 @@ test('MySQL HTTP workflows: compare, report, analytics, reviews, photos, likes, 
  // This destructive reset is confined to an explicitly opted-in disposable DB.
  for(const table of ['community_review_images','community_review_comments','community_review_likes','cafe_price_requests','cafe_interactions','community_reviews'])await pool.query('DELETE FROM '+table);
  await pool.query('UPDATE cafes SET review_count=0,rating_avg=0');
- await pool.query("INSERT INTO auth_sessions(id,user_id,refresh_hash,expires_at) VALUES('11111111-1111-4111-8111-111111111111',1,REPEAT('a',64),DATE_ADD(NOW(),INTERVAL 1 DAY)) ON DUPLICATE KEY UPDATE revoked_at=NULL,expires_at=DATE_ADD(NOW(),INTERVAL 1 DAY)");
+ await pool.query("INSERT INTO refresh_tokens(session_id,user_id,token_hash,expires_at) VALUES('11111111-1111-4111-8111-111111111111',1,REPEAT('a',64),DATE_ADD(NOW(),INTERVAL 1 DAY)) ON DUPLICATE KEY UPDATE revoked_at=NULL,expires_at=DATE_ADD(NOW(),INTERVAL 1 DAY)");
  const server=app.listen(0,'127.0.0.1');await once(server,'listening');
  const base=`http://127.0.0.1:${server.address().port}`;
  async function call(path,method='GET',body,token){

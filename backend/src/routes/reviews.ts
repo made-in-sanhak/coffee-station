@@ -13,7 +13,7 @@ const select = `SELECT r.id, CAST(r.cafe_id AS CHAR) cafeId, c.name cafeName,
  (SELECT COUNT(*) FROM community_review_likes l WHERE l.review_id=r.id) likes,
  EXISTS(SELECT 1 FROM community_review_likes l WHERE l.review_id=r.id AND l.user_id=?) liked,
  (SELECT COUNT(*) FROM community_review_comments cm WHERE cm.review_id=r.id) commentCount
- FROM community_reviews r JOIN cafes c ON c.cafe_id=r.cafe_id LEFT JOIN community_accounts a ON a.user_id=r.author_id`;
+ FROM community_reviews r JOIN cafes c ON c.cafe_id=r.cafe_id LEFT JOIN users a ON a.user_id=r.author_id`;
 const reviewId = (value: unknown) => {
  const v = text(value, '리뷰 ID', 64);
  if (!/^[a-zA-Z0-9-]+$/.test(v)) return bad('리뷰 ID를 확인해 주세요.');
@@ -74,7 +74,7 @@ router.post('/',async(req,res)=>{
 });
 router.get('/:id/comments',async(req,res)=>{
  const value=reviewId(req.params.id);await detail(value,null);
- const [rows]=await pool.execute<RowDataPacket[]>(`SELECT cm.id,a.nickname authorNickname,cm.content text,cm.created_at createdAt FROM community_review_comments cm JOIN community_accounts a ON a.user_id=cm.author_id WHERE cm.review_id=? ORDER BY cm.created_at,cm.id`,[value]);
+ const [rows]=await pool.execute<RowDataPacket[]>(`SELECT cm.id,a.nickname authorNickname,cm.content text,cm.created_at createdAt FROM community_review_comments cm JOIN users a ON a.user_id=cm.author_id WHERE cm.review_id=? ORDER BY cm.created_at,cm.id`,[value]);
  res.json(ok(rows));
 });
 router.post('/:id/comments',async(req,res)=>{

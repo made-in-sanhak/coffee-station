@@ -9,7 +9,13 @@ process.env.KAKAO_REST_API_KEY = 'fixture-client';
 process.env.KAKAO_CLIENT_SECRET = 'fixture-secret';
 process.env.KAKAO_REDIRECT_URI = 'http://localhost:8080/auth/kakao/callback';
 const realFetch = globalThis.fetch;
-const { kakaoProfile } = require('../dist/modules/auth/kakao');
+const {
+  exchangeKakaoCode,
+  fetchKakaoUser,
+} = require('../dist/modules/auth/kakaoClient');
+const { env } = require('../dist/config/env');
+const kakaoProfile = async code =>
+  fetchKakaoUser(await exchangeKakaoCode(code, env.kakao));
 function provider(profileId = 987654321) {
   return async (url, init) => {
     if (String(url) === 'https://kauth.kakao.com/oauth/token') {
@@ -83,6 +89,12 @@ test(
       });
       return { status: r.status, body: await r.json() };
     };
+    const me = async token => {
+      const r = await realFetch(base + '/api/users/me', {
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      return { status: r.status, body: await r.json() };
+    };
     let session, flow;
     const begin = async () => {
       const r = await post('/auth/kakao/start');
@@ -121,6 +133,10 @@ test(
           assert.equal(r.status, 200);
           session = r.body.data;
           assert.equal(session.user.nickname, '로그인테스트');
+          const identity = await me(session.accessToken);
+          assert.equal(identity.status, 200);
+          assert.equal(identity.body.data.id, session.user.id);
+          assert.equal(identity.body.data.role, 'USER');
           assert.equal(typeof session.user.id, 'number');
           assert(!session.accessToken.startsWith('mock'));
           assert.equal(
@@ -174,10 +190,14 @@ test(
             201,
           );
           const [rows] = await pool.execute(
-            'SELECT refresh_hash FROM auth_sessions WHERE id=?',
-            [session.refreshToken.split('.')[0]],
+            'SELECT token_hash FROM refresh_tokens WHERE token_hash=?',
+            [
+              require('../dist/modules/auth/tokens').hashRefreshToken(
+                session.refreshToken,
+              ),
+            ],
           );
-          assert.notEqual(rows[0].refresh_hash, session.refreshToken);
+          assert.notEqual(rows[0].token_hash, session.refreshToken);
         },
       );
       await t.test(
@@ -192,6 +212,35 @@ test(
             (await post('/api/auth/refresh', { refreshToken: prior })).status,
             401,
           );
+        },
+      );
+      await t.test(
+        'simultaneous refresh has one winner and signing failure leaves the old refresh usable',
+        async () => {
+          const tokens = require('../dist/modules/auth/tokens');
+          const original = tokens.signAccessToken;
+          tokens.signAccessToken = () => {
+            throw new (require('../dist/common/AppError').AppError)(500, 'simulated signer failure');
+          };
+          try {
+            assert.equal(
+              (
+                await post('/api/auth/refresh', {
+                  refreshToken: session.refreshToken,
+                })
+              ).status,
+              500,
+            );
+          } finally {
+            tokens.signAccessToken = original;
+          }
+          const responses = await Promise.all([
+            post('/api/auth/refresh', { refreshToken: session.refreshToken }),
+            post('/api/auth/refresh', { refreshToken: session.refreshToken }),
+          ]);
+          assert.deepEqual(responses.map(r => r.status).sort(), [200, 401]);
+          session = responses.find(r => r.status === 200).body.data;
+          assert.equal((await me(session.accessToken)).status, 200);
         },
       );
       await t.test(
@@ -231,25 +280,61 @@ test(
             ).status,
             401,
           );
+          assert.equal((await me(session.accessToken)).status, 401);
+        },
+      );
+      await t.test(
+        'expired DB session is rejected even while the signed access token is valid',
+        async () => {
+          const fresh = (await post('/auth/kakao', loginBody(await begin())))
+            .body.data;
+          assert.equal((await me(fresh.accessToken)).status, 200);
+          await pool.execute(
+            'UPDATE refresh_tokens SET expires_at=? WHERE token_hash=?',
+            [
+              new Date(Date.now() - 1000),
+              require('../dist/modules/auth/tokens').hashRefreshToken(
+                fresh.refreshToken,
+              ),
+            ],
+          );
+          assert.equal((await me(fresh.accessToken)).status, 401);
+          assert.equal(
+            (
+              await post('/api/auth/refresh', {
+                refreshToken: fresh.refreshToken,
+              })
+            ).status,
+            401,
+          );
         },
       );
       await t.test(
         'inactive account cannot log in or be reactivated by profile upsert',
         async () => {
-          await pool.execute(
-            'UPDATE community_accounts SET active=0 WHERE user_id=?',
-            [session.user.id],
-          );
+          const live = (await post('/auth/kakao', loginBody(await begin())))
+            .body.data;
+          await pool.execute('UPDATE users SET active=0 WHERE user_id=?', [
+            session.user.id,
+          ]);
           try {
+            assert.equal((await me(live.accessToken)).status, 401);
+            assert.equal(
+              (
+                await post('/api/auth/refresh', {
+                  refreshToken: live.refreshToken,
+                })
+              ).status,
+              401,
+            );
             assert.equal(
               (await post('/auth/kakao', loginBody(await begin()))).status,
               403,
             );
           } finally {
-            await pool.execute(
-              'UPDATE community_accounts SET active=1 WHERE user_id=?',
-              [session.user.id],
-            );
+            await pool.execute('UPDATE users SET active=1 WHERE user_id=?', [
+              session.user.id,
+            ]);
           }
         },
       );

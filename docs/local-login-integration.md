@@ -1,137 +1,71 @@
-# 최신 develop + 로컬 로그인 통합
+# 카카오 로그인·커뮤니티 인증 통합
 
-2026-11-25 원격 develop `ab10386b9be794802c402677e7b42d1e4ab6d983`을 로컬
-`codex/local-login-integration`에 병합했다. 기존 기능 보존 커밋은 `bff5d0e`,
-로그인 작업 보존 커밋은 `672dcb6`, 로컬 통합 커밋은 `fb701c3`이다.
+2026-11-25 PR #39의 팀 구현과 로컬 구현을 비교해 하나의 회원·토큰·인증 경로로 통합했다.
+팀의 users/refresh_tokens·권한·내 정보 조회와 로컬의 일회용 로그인 검증·세션 폐기·커뮤니티 기능을 함께 사용한다.
 
-기존 메뉴 가격 시드, 리뷰·댓글·좋아요·가격 비교·가격 제보 API, 서비스 로그인 백엔드를 유지한다.
-최신 develop의 메뉴 카테고리, 구매 캘린더, 점주 초대·메뉴판 화면, 추천 quota 변경을 반영했다.
-팀에서 제거한 차고 화면·꾸미기 상태·카페인 기록 UI와 이전 로그인 후 이동 도우미는 되살리지 않는다.
-로그인 보안 검증(state/일회용 flowToken)은 보존하면서 최신 sessionRevision/loginReturn 흐름으로
-통합했다. 로그인 뒤 취향 설정 또는 지도, 요청한 리뷰 화면으로 이동하며 중복 콜백은 한 번만 처리한다.
-점주·OCR·쿠폰 등 최신 프론트 화면의 존재가 해당 서버 API 구현 완료를 뜻하지는 않는다.
+## 실행 계약
 
-## 구현
+- POST /auth/kakao/start: 5분 일회용 authorizeUrl/state/flowToken/redirectUri 반환.
+- POST /auth/kakao: {code,redirectUri,state,flowToken}. 정확한 redirect와 일회용 흐름을 검증한 뒤 카카오 토큰/프로필 조회, 회원 저장, 서비스 토큰 발급.
+- GET /api/users/me: 같은 회원·세션 검증을 통과한 내 정보(id,nickname,profileImageUrl,role).
+- POST /api/auth/refresh: {refreshToken}. 행 잠금으로 한 번만 교체하고, 새 access 서명에 성공한 뒤 이전 refresh를 폐기한다.
+- POST /api/auth/logout: {refreshToken}. 해당 세션을 폐기하며 기존 access로 내 정보·리뷰 쓰기도 즉시 거부한다. 반복 로그아웃은 성공한다.
 
-- POST /auth/kakao/start: 5분 일회용 로그인 흐름, 카카오 authorize URL/state/flowToken 반환.
-- POST /auth/kakao: {code,redirectUri,state,flowToken}; 인가 코드로 카카오 토큰 교환 후
-  /v2/user/me 조회, 카카오 회원번호로 회원 생성/조회, 서비스 토큰+user 반환.
-- POST /api/auth/refresh: {refreshToken}; 토큰을 회전하고 새 로그인 응답 반환.
-- POST /api/auth/logout: {refreshToken}; 세션 폐기. 기존 accessToken도 기능 API에서 즉시 거부.
-- JWT: HS256, issuer coffee-station, audience coffee-station-app, token_use access, sid.
-  액세스 1시간, 세션/refresh 최대 30일. refresh 원문 대신 SHA-256 해시만 저장한다.
-- 비활성 계정은 로그인/갱신/기능 쓰기 모두 차단. 카카오 secret/code/token을 로그에 남기지 않는다.
-- 카카오 외부 HTTP는 요청/응답 본문 포함 8초 제한. 네트워크 502, 시간 초과 504.
-- 프론트는 정확한 Redirect URI/state를 확인하고 profile-only/mock 응답을 정상 로그인으로 저장하지 않는다.
-- 카카오 API만 테스트 대역으로 대체한 MySQL/HTTP 테스트로 로그인→리뷰/댓글/좋아요/제보→갱신→로그아웃을 검증했다.
-  실제 카카오 계정의 동의/로그인과 실제 에뮬레이터 UI 검증은 별도다.
+JWT는 용도별로 분리한 키의 HS256이며 sub/role/sid/issuer/audience/용도/시간을 검증한다.
+access는 1시간, refresh 세션은 로그인부터 최대 14일이다. 갱신해도 전체 세션 수명을 연장하지 않는다.
+refresh 원문은 저장하지 않고 SHA-256 해시를 보관한다. 인증이 필요한 모든 API는 같은 active 회원 및 유효 세션을 검사한다.
+세션 시간 비교에는 저장할 때와 동일한 날짜 변환을 적용한다.
+롤백 실패 연결은 폐기하며 DB 상세 오류와 카카오 secret/code/token을 응답이나 로그에 노출하지 않는다.
+카카오 토큰·프로필 호출은 응답 본문을 포함해 각 5초 제한, 401/502/504를 구분한다.
+로그인·세션 API의 IP 제한은 인스턴스별 개발 보호이며 운영의 공유 제한을 대체하지 않는다.
 
-## 로컬 설정
+## 설정
 
-루트 .env는 gitignore 대상이다. 로컬 JWT_SECRET을 생성하고 USE_MOCK_API=false로 변경했다.
-기존 카카오 키/Redirect URI는 유지했다.
-카카오 콘솔에서 클라이언트 시크릿을 사용하는 앱이면 서버 루트 .env에 추가해야 한다.
-실제 secret은 채팅/코드/PR에 붙여넣지 말고 .env에서만 입력한다.
-시크릿을 사용하지 않는 앱은 비워도 되며 서버는 설정된 경우에만 client_secret을 전송한다.
-앱 빌드에는 Babel allowlist의 공개 키/Redirect URI/mock 설정만 들어가며 JWT_SECRET/client secret은 포함하지 않는다.
-Redirect URI는 콘솔 등록값·프론트·백엔드가 일치해야 한다. 로그인 화면은 서버 URL을 사용한다.
+실제 .env는 Git에서 제외한다. JWT_SECRET은 32자 이상의 충분히 무작위인 값이어야 한다.
+KAKAO_REST_API_KEY/KAKAO_REDIRECT_URI를 설정한다. 콘솔에서 시크릿을 사용하는 앱은 KAKAO_CLIENT_SECRET도 필요하다.
+시크릿을 사용하지 않는 앱은 비워둘 수 있다. 프론트는 서버가 발급한 로그인 URL을 사용한다.
+프론트에는 Babel allowlist의 공개 설정만 포함하며 JWT/client secret은 앱 번들에 넣지 않는다.
 
-공식 흐름 참고: https://developers.kakao.com/docs/ko/kakaologin/rest-api
+## DB 적용과 기존 데이터 이전
 
-## 실행
-
-기존 백엔드/Metro는 Ctrl+C로 종료한 뒤 다시 실행한다. 기존 서버를 강제로 종료하지는 않았다.
-Docker Desktop을 먼저 켠다. PowerShell에서 각 줄을 실행한다.
+**백엔드를 중지하고 DB를 백업한 후** backend 폴더에서 실행한다. 매장 기본 schema.sql은 선행 적용해야 한다.
 
 ```powershell
-docker start coffee-mysql-haengsin
-cd "$env:USERPROFILE\OneDrive\바탕 화면\산학프로젝트\coffee-station-haengsin\backend"
-$env:NODE_ENV='development'
-$env:HOST='127.0.0.1'
-$env:PORT='8080'
-$env:DB_HOST='127.0.0.1'
-$env:DB_PORT='3307'
-$env:DB_NAME='coffee_station_expanded'
-$env:DB_USER='coffee'
-$env:DB_PASSWORD='haengsin-local-demo'
+npm.cmd ci
 npm.cmd run db:community
 npm.cmd run dev
 ```
 
-별도 터미널에서 Metro (로컬 실행 복사본, 한글 경로 회피):
+- 002_auth_users.sql: 팀 회원·refresh 테이블.
+- 002_community_features.sql: 리뷰·사진·좋아요·댓글·제보·이용 기록 테이블(첫 적용 때만 실행).
+- 005_unified_auth.sql + scripts/migrate-auth.cjs: active/session 열, 일회용 흐름, 작성자 매핑과 외래 키 통합.
+- 003_import_generated_reviews.sql: 이전 생성 리뷰가 있으면 ID·출처를 유지하여 가져오기.
+- 004_service_auth.sql은 이전 로컬 구조 기록이다. 새 설치에는 적용하지 않는다.
 
-```powershell
-cd C:\dev\coffee-station-reviews\frontend
-npm.cmd start -- --reset-cache
-```
+005는 단독 SQL 실행으로 끝나는 작업이 아니다. 위 스크립트를 통해 SQL과 회원 매핑을 함께 적용한다.
+새 런타임의 회원은 users 하나이며 리뷰 작성자/댓글/좋아요/제보의 FK도 users를 가리킨다.
+기존 로컬 회원은 숫자 ID가 아니라 카카오 회원번호로 팀 회원과 매칭한다.
+매핑표 legacy_community_user_map을 남기고 기존 테이블은 legacy_auth_users/legacy_auth_sessions/legacy_community_accounts로 보관한다.
+카카오 신원이 없던 수동 계정은 비활성 보존 계정으로 이전하여 다른 사람에게 잘못 연결하지 않는다.
+이전 토큰 형식은 폐기되므로 앱 업데이트 후 다시 로그인해야 한다. 프론트·백엔드를 함께 배포한다.
+새 로그인 요청에는 state/flowToken이 필수다. 이전 code/redirectUri만 보내는 클라이언트는 업데이트해야 한다.
 
-에뮬레이터를 켠 뒤 다른 터미널:
+DDL은 전체 트랜잭션으로 되돌릴 수 없으므로 백업이 필요하다. 작성자 관계 변경과 완료 표식은 하나의 트랜잭션으로 처리하고,
+재실행 시 FK 추가·보관 작업을 마무리한다. 이력 SQL의 001/002 번호만 보고 일괄 실행하지 않는다.
 
-```powershell
-cd C:\dev\coffee-station-reviews\frontend
-npm.cmd run android -- --no-packager
-```
+## 확인 결과
 
-코드 통합 후 원본과 C:/dev 복사본의 Git 관리 대상 frontend 파일 및 로컬 .env를 동기화했다.
-최신 develop에서 삭제된 frontend 파일도 복사본에서 제거했다.
-2026-11-25 이전 파일은 C:/dev/coffee-station-reviews/.develop-backup-날짜 폴더에 보관된다.
-의존성 잠금 파일이 동일함을 확인했으며 node_modules와 로컬 Android 빌드 설정은 유지했다.
-백엔드는 원본 폴더에서 실행하며 프론트 개발 서버 주소는 http://10.0.2.2:8080이다.
+- 프론트 전체 47개 테스트 파일, 249개 테스트 및 TypeScript 검사 통과.
+- 백엔드 전체 기본 검사 77개 통과(별도 DB opt-in 4개 생략), 실제 MySQL/HTTP 21개 및 회원 이전 검사 1개 통과.
+- 통합 후 실제 앱 DB를 대상으로 한 직접 HTTP 검사 23개 통과.
+- MySQL 검증: ID 충돌 계정 매핑·리뷰/댓글/좋아요/제보 보존·마이그레이션 재실행.
+- HTTP/MySQL 검증: 로그인→내 정보→리뷰/사진/댓글/좋아요/제보→갱신→로그아웃,
+  동시 갱신 단일 성공·서명 실패 시 이전 토큰 보존·DB 세션 만료·비활성 회원 차단.
+- 실제 앱 DB에서 매장 21곳, 메뉴 594개, 가격 옵션 2740개, 리뷰 106개, 댓글 1개의 내용 보존을 해시로 확인했다.
+- 적용 전 백업은 로컬 임시 폴더의 coffee-station-before-auth-unify-20261125-022808.sql이다. Git에 포함하지 않는다.
+- 카카오 응답은 테스트 대역을 사용했다. 실제 계정 로그인·동의, 에뮬레이터 및 운영 배포는 이번 검증에 포함하지 않았다.
+- 점주·OCR·쿠폰·구매·모임 API 구현은 이 PR 범위가 아니다.
 
-## 화면 확인
-
-카카오로 시작하기 → 실제 카카오 계정 로그인·동의 → 취향 설정 또는 지도.
-매장 상세 가격 확인 요청 → 옵션/가격/메모 → 요청 보내기.
-휴게소 → 커피 리뷰 쓰기 → 매장/별점/내용/사진 → 등록.
-리뷰 상세 → 좋아요/다시 눌러 취소 → 댓글 등록. 내 기록에서 내 리뷰를 확인한다.
-설정 → 로그아웃 후 인증 쓰기는 거부된다. DB에 리뷰/댓글/좋아요/제보가 남는다.
-제보만으로 판매가격을 바꾸지는 않는다. 이벤트/할인/점주 승인·모임/쿠폰/구매 API는 이번 작업 범위가 아니다.
-
-현재 프론트 정책대로 세션은 메모리에만 보관한다. 앱을 완전히 종료하면 다시 로그인한다.
-자동 refresh 재시도는 추가하지 않았다. 장시간 사용해 액세스가 만료되면 다시 로그인한다.
-갱신 API는 향후 로그인 유지 기능에 사용할 수 있다. 운영의 공유 로그인 호출 제한은 별도 배포 과제다.
-
-## 이전 로그인 구현 시 확인한 결과
-
-- backend 전체: 62개 통과, 별도 DB opt-in 테스트 2개는 기본 실행에서 생략.
-- 실제 MySQL 기능 테스트 12개, 카카오 응답 대역을 사용한 로그인 연계 테스트 7개 통과.
-- frontend 전체 기존 215개 통과. 추가 로그인 보안 2개와 로그인 전환 회귀를 묶은 12개 통과.
-- backend/frontend TypeScript 검사 통과.
-- 실제 coffee_station_expanded DB에 004까지 적용 후 기존 리뷰 105개 유지.
-- 로컬 HTTP 확인: 투썸 리뷰 5개, 가격 비교 10개 매장, 로그인 시작 API 모두 200.
-- 카카오 계정 실제 인증/동의와 에뮬레이터 UI는 사용자 확인 필요.
-
-## 2026-11-25 develop 재병합 검증
-
-- frontend 전체 47개 테스트 파일 / 249개 테스트 통과.
-- 비동기 로그인 시작 처리를 반영한 로그인 전환·보안 테스트 12개 추가 재확인 통과.
-- frontend TypeScript 검사 통과.
-- backend 빌드 및 테스트 64개 통과 / DB opt-in 테스트 3개 생략.
-- 테스트가 사용하는 Node HTTP 서버와 카카오 응답 대역만으로 검증했으며 실제 카카오 외부 호출은 하지 않았다.
-- Docker 엔진이 실행 중이 아니어서 이번 병합에서는 실제 MySQL 테스트와 DB 적재를 실행하지 않았다.
-- 기존 haengsin.sql 및 리뷰 시드에 변경이 없고 로그인·리뷰·가격 기능 코드가 보존됐음을 확인했다.
-- 실제 Android 빌드·에뮬레이터 화면은 이번 병합 검증에 포함하지 않았다.
-- .env는 계속 ignored/untracked이며 로컬 커밋에 포함하지 않는다.
-
-## Docker 재실행 후 API 확인
-
-- coffee-mysql-haengsin 및 개발 백엔드를 실행해 /health의 server/db가 모두 ok임을 확인했다.
-- Postman 직접 확인: /api/cafes/9001/menus, /api/menus/compare, /api/reviews?cafeId=9001 모두 200.
-- 실제 앱 DB를 대상으로 한 직접 HTTP 검사 23개 통과: 매장 21곳, 투썸 메뉴 옵션 118개,
-  투썸 리뷰 5개, 가격 비교 16곳, 추천 상위 3곳, 자연어 mock 준비/확인,
-  로그인 시작, 인증 없는 쓰기 차단, 입력 오류와 없는 매장 응답을 확인했다.
-- coffee_features_test_2026112401 별도 DB에서 순차 실행한 HTTP/MySQL 테스트 19개 통과.
-  리뷰·사진·좋아요·댓글·가격 제보·이용 기록, 로그인 흐름·갱신·로그아웃을 확인했다.
-  같은 DB를 공유하는 두 파일의 병렬 실행은 리뷰 수 검증에 간섭하므로 --test-concurrency=1을 사용한다.
-- 카카오 외부 응답은 테스트 대역이며 실제 계정 로그인 완료나 에뮬레이터 실행 검증은 아니다.
-- /api/owner/me, /api/coupons, /api/purchases, /api/meetups는 백엔드 미구현으로 404다.
-
-## PR 병합 전 팀 로그인과 통합 필요
-
-PR 등록 직전 develop을 다시 확인하니 #39가 병합되어 `0bc2365`가 되었다.
-위 검증 대상은 `ab10386`을 병합한 로컬 기능 브랜치이며 #39까지 통합한 결과가 아니다.
-#39와 이 브랜치는 auth/router.ts, auth/tokens.ts, app.ts를 각각 구현했고,
-auth_users/auth_sessions 등 회원·세션 DB 계약도 다르다. 두 구현을 나란히 적용하지 않는다.
-팀 회원 저장소·JWT·/api/users/me를 기준으로 커뮤니티 작성자 및 세션 검증을 연결하고,
-state/일회용 로그인 흐름을 유지하는 방식으로 충돌·DB 마이그레이션을 해결한 뒤 재검증해야 한다.
-이 작업과 실제 카카오 계정 로그인이 완료되기 전에는 Draft PR을 유지한다.
+실행 원본은 coffee-station-haengsin/backend이며 한글 경로 회피용 프론트 복사본은 C:/dev/coffee-station-reviews/frontend다.
+이번 인증 통합에서 프론트 호출 계약은 앞서 동기화한 state/flowToken 방식을 그대로 사용한다.
+현재 프론트 세션은 메모리 보관이며 앱 종료/만료 시 다시 로그인한다. 자동 refresh 재시도는 별도 과제다.

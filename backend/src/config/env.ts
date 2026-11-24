@@ -37,7 +37,11 @@ export function loadSettings(values: NodeJS.ProcessEnv) {
       password: values.DB_PASSWORD ?? '',
     },
     jwtSecret: values.JWT_SECRET ?? '',
-    kakao: { restApiKey: values.KAKAO_REST_API_KEY ?? '', clientSecret: values.KAKAO_CLIENT_SECRET ?? '', redirectUri: values.KAKAO_REDIRECT_URI ?? '' },
+    kakao: {
+      restApiKey: values.KAKAO_REST_API_KEY ?? '',
+      clientSecret: values.KAKAO_CLIENT_SECRET ?? '',
+      redirectUri: values.KAKAO_REDIRECT_URI ?? '',
+    },
     extractionMode,
     catalogMode,
     geminiApiKey: values.GEMINI_API_KEY ?? '',

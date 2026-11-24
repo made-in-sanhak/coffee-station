@@ -58,6 +58,79 @@ backend/sql/staging/haengsin/ 승인된 행신 비교 자료 (현재 판매 추�
 docs/                추천·리뷰 분석·개발 계획·배포·API 안내
 ```
 
+## 📐 백엔드 코드 작성 규칙 (Node.js · Express 5 · TypeScript)
+
+### 폴더와 파일
+
+새 기능은 `backend/src/modules/기능명/` 아래에 만든다. 라우터 파일 이름은 `router.ts`로 통일하고, 로직이 길어지면 같은 폴더에 역할별 파일로 나눈다.
+
+```text
+backend/src/
+├── app.ts               라우터 등록 (notFound·errorHandler 는 항상 맨 마지막)
+├── server.ts            서버 시작
+├── config/              env.ts(설정), db.ts(MySQL 연결 풀), aiPolicy.ts
+├── common/              AppError.ts(의도한 오류), response.ts(ok·fail 응답)
+├── middlewares/         errorHandler.ts(notFound·공통 오류 처리)
+├── modules/기능명/       router.ts + service.ts·repository.ts 등 (새 기능은 여기)
+└── routes/              기존 health·stores·cafes 라우터 (새 라우터는 추가하지 않음)
+```
+
+| 종류 | 위치 | 이름 예시 |
+| --- | --- | --- |
+| 라우터 | `src/modules/기능명/router.ts` | `modules/cafes/router.ts` (`export default router`) |
+| 비즈니스 로직 | `src/modules/기능명/` | `recommendations/service.ts` |
+| DB 조회 | `src/modules/기능명/` | `recommendations/mysqlRepository.ts` |
+| 테스트 | `backend/tests/` | `cafeMapHttp.cjs` |
+
+- 파일·폴더 이름은 camelCase를 쓴다.
+- `src/routes/`의 기존 라우터를 `modules/`로 옮기는 것은 기능 변경과 섞지 않고 별도 `refactor` PR로 한다.
+
+### 라우터 등록과 경로
+
+- `app.ts`에 `app.use('/api/기능명', 라우터)`로 등록한다. `app.use(notFound)`, `app.use(errorHandler)`보다 반드시 위에 둔다.
+- 새 API는 `/api/` 접두사를 기본으로 한다. 앱이 이미 다른 경로로 호출하는 경우(`/health`, `/stores`, `/auth`)만 예외로 두고, 그 이유를 `docs/api.md`에 적는다.
+- 같은 접두사(예: `/api/cafes`)에 라우터가 여러 개 붙어 있으면, 같은 경로를 정의한 경우 먼저 등록된 라우터가 처리하고 뒤의 것은 실행되지 않는다. 새 경로를 추가하기 전에 같은 접두사의 다른 라우터와 경로가 겹치지 않는지 확인한다.
+
+### 응답과 오류
+
+- 성공 응답은 항상 `res.json(ok(data))`로 보낸다. 형식은 `{ success, data, message }`이며 `frontend/src/api/client.ts`의 `ApiResponse`와 같다.
+- 의도한 오류는 `throw new AppError(상태코드, '사용자에게 보여줄 메시지')`로 던진다. Express 5는 `async` 핸들러의 오류도 `errorHandler`로 넘기므로 `try/catch`로 감싸 직접 응답하지 않는다.
+- 상태 코드는 다음 기준을 따른다.
+  - 400: 요청 값 오류
+  - 401: 인증 실패
+  - 404: 대상 없음
+  - 409: 상태 충돌
+  - 422: 지원하지 않는 조건
+  - 503: DB·외부 서비스를 쓸 수 없음
+- 내부 오류 문구, SQL, 스택은 응답에 넣지 않는다. 예상하지 못한 오류는 `errorHandler`가 500으로 바꾼다.
+
+### 설정과 비밀값
+
+- `process.env`를 기능 코드에서 직접 읽지 않는다. `src/config/env.ts`의 `loadSettings`에 항목을 추가하고, 코드에서는 `env.항목`으로 쓴다.
+- 새 환경변수는 루트 `.env.example`에 **이름만** 추가한다. 실제 값은 `.env`(Git 제외)에만 두고 팀 비공개 채널로 공유한다. 운영 서버는 환경변수(추후 Secrets Manager)로 주입한다.
+- API 키·클라이언트 시크릿·토큰·인가 코드는 로그(`console.*`)와 응답에 남기지 않는다. 외부 API 실패는 오류 코드만 기록한다.
+- 시크릿이 필요한 외부 호출은 백엔드에서만 한다. 프론트 코드에 시크릿을 넣지 않는다.
+
+### DB (MySQL)
+
+- `src/config/db.ts`의 `pool`을 쓰고, 값은 반드시 `?` 자리표시자로 넘긴다. 문자열을 이어 붙여 SQL을 만들지 않는다.
+- 여러 쓰기를 함께 처리해야 하면 `db.ts` 주석의 트랜잭션 패턴(`beginTransaction` → `commit`/`rollback` → `release`)을 따른다.
+- 스키마·시드 SQL은 `backend/sql/`에 둔다.
+
+### 테스트와 확인
+
+- 테스트는 `backend/tests/이름.cjs`에 `node:test`로 작성하고, 빌드된 `../dist/...`를 `require`한다.
+- 파일 맨 위에서 `process.env.NODE_ENV = 'test'`를 설정한다. 이렇게 하면 개발자의 `.env`를 읽지 않으므로, 필요한 설정값은 테스트 안에서 직접 넣는다.
+- DB(`pool.query`)와 외부 API(`fetch`)는 가짜로 바꿔서 실제 서비스에 접속하지 않게 한다.
+- PR 전에 `backend`에서 다음 두 명령이 통과해야 한다.
+
+```powershell
+npm run typecheck   # 타입 검사 (strict)
+npm test            # 빌드 후 tests/*.cjs 전체 실행
+```
+
+- API를 추가하거나 바꾸면 `docs/api.md`에 요청·응답·오류를 적는다.
+
 ## 🌿 브랜치 · 커밋 규칙
 
 | 브랜치 | 용도 |

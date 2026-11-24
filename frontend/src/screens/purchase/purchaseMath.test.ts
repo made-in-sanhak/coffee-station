@@ -1,4 +1,6 @@
 import {
+  averagePerCup,
+  receiptCouponProgress,
   monthCells,
   moveMonth,
   summarizePurchases,
@@ -56,6 +58,20 @@ test('month totals exclude other months', () => {
     totalCups: 0,
     purchaseCount: 0,
   });
+});
+
+test('average per cup rounds the month spend and is empty without purchases', () => {
+  expect(averagePerCup(48300, 17)).toBe(2841);
+  expect(averagePerCup(0, 0)).toBeNull();
+});
+
+test('receipt coupon progress prefers the reward progress and wraps every three receipts', () => {
+  expect(receiptCouponProgress({ stamps: 5 })).toBe(2);
+  expect(
+    receiptCouponProgress({ stamps: 5, receiptReward: { total: 3, progress: 1, target: 3 } }),
+  ).toBe(1);
+  expect(receiptCouponProgress(undefined)).toBeUndefined();
+  expect(receiptCouponProgress({})).toBeUndefined();
 });
 
 test('used coupon stays used past its expiry and expiry day stays available', () => {

@@ -6,7 +6,8 @@ import recommendationsRouter from './modules/recommendations/router';
 import reviewSummariesRouter from './modules/reviewSummaries/router';
 import cafesRouter from './modules/cafes/router';
 import { errorHandler, notFound } from './middlewares/errorHandler';
-import authRouter from './modules/auth/router';
+import authRouter, { sessionRouter } from './modules/auth/router';
+import usersRouter from './modules/users/router';
 
 export const app = express();
 
@@ -25,7 +26,10 @@ app.use('/stores', storesRouter);
 // 기능 라우터는 여기에 추가합니다. 이미 쓰는 접두사에 라우터를 하나 더 붙이지 마세요. 예)
 // app.use('/api/기능명', 기능Router);
 
+// 앱이 /api 없이 호출하는 카카오 로그인만 예외로 /auth 를 씁니다.
 app.use('/auth', authRouter);
+app.use('/api/auth', sessionRouter);
+app.use('/api/users', usersRouter);
 
 // 아래 두 줄은 항상 맨 마지막에 둡니다.
 app.use(notFound);

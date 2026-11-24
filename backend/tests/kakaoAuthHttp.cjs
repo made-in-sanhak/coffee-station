@@ -8,6 +8,8 @@ process.env.KAKAO_REST_API_KEY = 'test-rest-key';
 process.env.KAKAO_CLIENT_SECRET = 'test-client-secret';
 process.env.KAKAO_REDIRECT_URI = 'http://localhost:8080/auth/kakao/callback';
 const { app } = require('../dist/app');
+const { userStore } = require('../dist/modules/auth/userStore');
+const { installFakeUserStore } = require('./fixtures/fakeUserStore.cjs');
 
 const REDIRECT = process.env.KAKAO_REDIRECT_URI;
 const realFetch = globalThis.fetch;
@@ -26,6 +28,7 @@ async function withServer(kakao, run) {
     }
     return realFetch(url, init);
   };
+  const store = installFakeUserStore(userStore);
   const server = app.listen(0, '127.0.0.1');
   try {
     await once(server, 'listening');
@@ -34,26 +37,32 @@ async function withServer(kakao, run) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    await run(post, calls);
+    await run(post, calls, store);
   } finally {
+    store.restore();
     globalThis.fetch = realFetch;
     server.closeAllConnections();
     await new Promise(resolve => server.close(resolve));
   }
 }
 
-test('exchanges the code with the client secret and returns the Kakao profile', async () => {
+test('exchanges the code with the client secret, saves the member and returns a service session', async () => {
   await withServer(href => href.includes('/oauth/token')
     ? json(200, { access_token: 'kakao-access-token' })
     : json(200, { id: 4242, kakao_account: { profile: { nickname: '행신 커피러', profile_image_url: 'https://img/p.jpg' } } }),
-  async (post, calls) => {
+  async (post, calls, store) => {
     const response = await post({ code: 'auth-code', redirectUri: REDIRECT });
     assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), {
-      success: true,
-      data: { profile: { kakaoId: '4242', nickname: '행신 커피러', profileImageUrl: 'https://img/p.jpg' } },
-      message: null,
-    });
+    const body = await response.json();
+    assert.equal(body.success, true);
+    // 앱(classifyParkSession)이 서비스 로그인으로 인정하는 형식: mock 이 아닌 토큰 + 1 이상의 정수 id
+    assert.deepEqual(body.data.user, { id: 1, nickname: '행신 커피러', profileImageUrl: 'https://img/p.jpg' });
+    assert.match(body.data.accessToken, /^[\w-]+\.[\w-]+\.[\w-]+$/);
+    assert.equal(typeof body.data.refreshToken, 'string');
+    assert.doesNotMatch(body.data.accessToken + body.data.refreshToken, /^mock/i);
+    assert.deepEqual([...store.users.keys()], ['4242']);
+    assert.equal(store.tokens.size, 1, 'only the refresh token hash is stored');
+    assert(!store.tokens.has(body.data.refreshToken), 'the raw refresh token is never stored');
     const form = new URLSearchParams(String(calls[0].init.body));
     assert.equal(form.get('grant_type'), 'authorization_code');
     assert.equal(form.get('client_id'), 'test-rest-key');

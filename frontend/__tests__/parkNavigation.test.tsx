@@ -51,8 +51,9 @@ test('Park preference skip retains flow and preview private-action login routes 
   await act(() => element.props.onSkip());
   expect(usePreferenceStore.getState().preferences).toBeNull();
   expect(navigation.replace).toHaveBeenCalledWith('Map');
-  for (const name of ['Map','Login','KakaoLogin','LocationPermission','Recommend','Community','Garage','Receipt','CafeDetail','Order','OwnerInvite','OwnerStoreConfirm'])
+  for (const name of ['Map','Login','KakaoLogin','LocationPermission','Recommend','Community','Calendar','Receipt','CafeDetail','Order','OwnerInvite','OwnerStoreConfirm'])
     expect(routes(tree!)).toContain(name);
+  expect(routes(tree!)).not.toContain('Garage');
   await act(() => useAuthStore.getState().logout());
   expect(routes(tree!)).toEqual(['Login', 'OwnerLogin', 'KakaoLogin', 'MidtermTest']);
   await act(() => tree!.unmount());

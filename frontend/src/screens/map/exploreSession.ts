@@ -10,9 +10,10 @@ export type MapCommand =
       currentLocation?: boolean;
     };
 
+// 시연 데이터(DB 시드)가 행신역 주변이라 행신역에서 시작합니다.
 export const DEFAULT_MAP_CENTER: Coordinate = {
-  latitude: 37.5665,
-  longitude: 126.978,
+  latitude: 37.6119,
+  longitude: 126.8341,
 };
 
 interface ExploreSession {

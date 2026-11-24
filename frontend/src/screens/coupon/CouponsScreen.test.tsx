@@ -13,6 +13,37 @@ jest.mock('../../app/api', () => ({
   useResource: jest.fn(),
 }));
 
+test('receipt progress card and its soft button both open receipt registration', async () => {
+  useSessionStore.setState({
+    user: { id: 'user', nickname: '테스트', profileImageUrl: null, role: 'USER' },
+    accessToken: 'token',
+  });
+  (useResource as jest.Mock).mockImplementation((path: string) => ({
+    data: path === '/api/coupons' ? [] : { stamps: 2 },
+    loading: false,
+    error: null,
+    reload: jest.fn(),
+  }));
+  const navigate = jest.fn();
+  const props = {
+    navigation: { navigate, goBack: jest.fn(), canGoBack: () => true },
+  } as unknown as React.ComponentProps<typeof CouponsScreen>;
+  let tree!: Renderer.ReactTestRenderer;
+  await act(() => {
+    tree = Renderer.create(<CouponsScreen {...props} />);
+  });
+  expect(JSON.stringify(tree.toJSON())).toContain('다음 쿠폰까지 영수증 1회');
+  const pressable = (testID: string) =>
+    tree.root.findAll(
+      node => node.props.testID === testID && typeof node.props.onPress === 'function',
+    )[0];
+  expect(pressable('coupon-go-receipt').props.label).toBe('영수증 등록하러 가기');
+  await act(() => pressable('coupon-go-receipt').props.onPress());
+  await act(() => pressable('coupon-receipt-progress').props.onPress());
+  expect(navigate.mock.calls).toEqual([['Receipt'], ['Receipt']]);
+  await act(() => tree.unmount());
+});
+
 test('failed redemption keeps real coupon available and never shows a successful use', async () => {
   useSessionStore.setState({
     user: {

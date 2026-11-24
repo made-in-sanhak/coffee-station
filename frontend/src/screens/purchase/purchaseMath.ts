@@ -2,7 +2,6 @@ export interface PurchaseSummaryInput {
   purchasedAt: string;
   totalAmount: number;
   totalCups: number;
-  caffeineMg: number;
 }
 
 export function localDateKey(date: Date) {
@@ -50,20 +49,29 @@ export function summarizePurchases(
   const selected = records.filter(record =>
     purchaseDateKey(record.purchasedAt).startsWith(prefix),
   );
-  const dates = new Set(
-    selected.map(record => purchaseDateKey(record.purchasedAt)),
-  );
   return {
     totalAmount: selected.reduce((sum, record) => sum + record.totalAmount, 0),
     totalCups: selected.reduce((sum, record) => sum + record.totalCups, 0),
     purchaseCount: selected.length,
-    averageCaffeineMg: dates.size
-      ? Math.round(
-          selected.reduce((sum, record) => sum + record.caffeineMg, 0) /
-            dates.size,
-        )
-      : 0,
   };
+}
+
+// 한 잔 평균 = 지출 ÷ 잔 수 (반올림). 구매가 없으면 null.
+export function averagePerCup(totalAmount: number, totalCups: number) {
+  return totalCups > 0 ? Math.round(totalAmount / totalCups) : null;
+}
+
+export const RECEIPTS_PER_COUPON = 3;
+export interface ReceiptRewardStatistics {
+  stamps?: number;
+  receiptReward?: { total: number; progress: number; target: number };
+}
+// 다음 쿠폰까지 모은 영수증 수(0~2). 통계가 없으면 undefined.
+export function receiptCouponProgress(statistics?: ReceiptRewardStatistics) {
+  const value = statistics?.receiptReward?.progress ?? statistics?.stamps;
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.floor(value)) % RECEIPTS_PER_COUPON
+    : undefined;
 }
 
 export type CouponStatus = 'available' | 'used' | 'expired';

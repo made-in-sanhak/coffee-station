@@ -39,7 +39,6 @@ export type RootStackParamList = {
   ReceiptReview: { draft: ReceiptDraft };
   Calendar: undefined;
   Coupons: undefined;
-  Garage: undefined;
   Owner: undefined;
   OwnerMenus: { cafeId?: string; mode?: 'event' } | undefined;
   Order: { dealId: string };

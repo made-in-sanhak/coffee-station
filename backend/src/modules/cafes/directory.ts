@@ -1,10 +1,8 @@
-import { Router } from 'express';
 import type { RowDataPacket } from 'mysql2';
-import { pool } from '../config/db';
-import { ok } from '../common/response';
-import { AppError } from '../common/AppError';
+import { pool } from '../../config/db';
+import { AppError } from '../../common/AppError';
 
-const router = Router();
+// 매장 목록·이름 검색·상세·메뉴 조회 (지도 가격 조회는 router.ts 의 nearby)
 
 function numberParam(value: unknown, name: string, min: number, max: number) {
   if (typeof value !== 'string' || !value.trim() || !Number.isFinite(Number(value)) || Number(value) < min || Number(value) > max) {
@@ -66,8 +64,9 @@ async function hydrate(rows: RowDataPacket[]) {
   });
 }
 
-router.get('/', async (req, res) => {
-  const { latitude, longitude, radius, query } = req.query;
+// 매장 목록·이름 검색. 위치가 있으면 반경 안을 가까운 순으로 반환합니다.
+export async function listCafes(q: Record<string, unknown>) {
+  const { latitude, longitude, radius, query } = q;
   const positioned = latitude !== undefined || longitude !== undefined;
   if (radius !== undefined && !positioned) throw new AppError(400, '반경 검색에는 위도와 경도가 필요합니다.');
   const params: (string | number)[] = [];
@@ -90,9 +89,8 @@ router.get('/', async (req, res) => {
   } else sql += ' ORDER BY c.cafe_id';
   sql += ' LIMIT 500';
   const [rows] = await pool.execute<RowDataPacket[]>(sql, params);
-  // Menu/size/temperature sorting is performed by the existing map screen.
-  res.json(ok(await hydrate(rows)));
-});
+  return hydrate(rows);
+}
 
 async function findCafe(id: unknown) {
   if (typeof id !== 'string' || !/^\d{1,19}$/.test(id)) throw new AppError(404, '매장을 찾을 수 없습니다.');
@@ -101,13 +99,11 @@ async function findCafe(id: unknown) {
   return rows;
 }
 
-router.get('/:id/menus', async (req, res) => {
-  const rows = await findCafe(req.params.id);
-  res.json(ok(await readMenus([String(rows[0].id)])));
-});
+export async function getCafeMenus(id: unknown) {
+  const rows = await findCafe(id);
+  return readMenus([String(rows[0].id)]);
+}
 
-router.get('/:id', async (req, res) => {
-  res.json(ok((await hydrate(await findCafe(req.params.id)))[0]));
-});
-
-export default router;
+export async function getCafe(id: unknown) {
+  return (await hydrate(await findCafe(id)))[0];
+}

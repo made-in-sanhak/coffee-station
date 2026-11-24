@@ -209,7 +209,7 @@ export default function OrderCompleteScreen({
       <Row style={{ backgroundColor: P.soft, padding: 12, borderRadius: 12 }}>
         <Asset name="receipt" />
         <Txt size={12} color={P.green}>
-          구매 캘린더 · 카페인 기록에 자동 저장돼요
+          구매 캘린더에 자동 저장돼요
         </Txt>
       </Row>
       {error && (

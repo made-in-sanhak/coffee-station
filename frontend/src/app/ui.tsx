@@ -58,9 +58,9 @@ type Navigation = {
   canGoBack?: () => boolean;
   popTo?: (...args: any[]) => void;
 };
-export type AppTab = 'map' | 'recommend' | 'receipt' | 'community' | 'garage';
+export type AppTab = 'map' | 'recommend' | 'community' | 'record';
 const tabLabels: Record<AppTab, TabName> = {
-  map: '지도', recommend: '추천', community: '휴게소', garage: '내 기록', receipt: '내 기록',
+  map: '지도', recommend: '추천', community: '휴게소', record: '내 기록',
 };
 const tabRoutes: Record<TabName, string> = {
   지도: 'Map', 추천: 'Recommend', 휴게소: 'Community', '내 기록': 'Calendar',
@@ -123,6 +123,7 @@ export function Screen({
   header = true,
   headerRight,
   footer,
+  floating,
   contentStyle,
 }: {
   title?: string;
@@ -133,6 +134,8 @@ export function Screen({
   header?: boolean;
   headerRight?: React.ReactNode;
   footer?: React.ReactNode;
+  // 본문 위에 떠 있는 요소(예: 플로팅 버튼). 하단 탭 바로 위 영역에 배치됩니다.
+  floating?: React.ReactNode;
   contentStyle?: StyleProp<ViewStyle>;
 }) {
   return (
@@ -168,19 +171,22 @@ export function Screen({
           <HeaderMain navigation={navigation} />
         )
       ) : null}
-      {scroll ? (
-        <ScrollView
-          style={styles.flex}
-          contentContainerStyle={[styles.content, contentStyle]}
-          keyboardShouldPersistTaps="handled"
-        >
-          {children}
-        </ScrollView>
-      ) : (
-        <View style={[styles.flex, styles.content, contentStyle]}>
-          {children}
-        </View>
-      )}
+      <View style={styles.flex}>
+        {scroll ? (
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={[styles.content, contentStyle]}
+            keyboardShouldPersistTaps="handled"
+          >
+            {children}
+          </ScrollView>
+        ) : (
+          <View style={[styles.flex, styles.content, contentStyle]}>
+            {children}
+          </View>
+        )}
+        {floating}
+      </View>
       {footer}
       {tab ? <TabBar navigation={navigation} active={tab} /> : null}
     </SafeAreaView>
@@ -214,7 +220,7 @@ export function Button({
 }: {
   label: string;
   onPress: () => void | Promise<void>;
-  variant?: 'primary' | 'outline' | 'kakao' | 'quiet';
+  variant?: 'primary' | 'outline' | 'kakao' | 'quiet' | 'soft';
   disabled?: boolean;
   loading?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -238,6 +244,7 @@ export function Button({
         variant === 'outline' && styles.outline,
         variant === 'kakao' && styles.kakao,
         variant === 'quiet' && styles.quiet,
+        variant === 'soft' && styles.soft,
         (disabled || loading || pressed) && styles.dim,
         style,
       ]}
@@ -251,7 +258,7 @@ export function Button({
           style={[
             styles.buttonLabel,
             variant !== 'primary' && styles.darkButtonLabel,
-            variant === 'outline' && { color: tokens.green },
+            (variant === 'outline' || variant === 'soft') && { color: tokens.green },
             textStyle,
           ]}
         >
@@ -399,6 +406,7 @@ export const styles = StyleSheet.create({
   },
   kakao: { backgroundColor: tokens.kakao },
   quiet: { backgroundColor: 'transparent' },
+  soft: { backgroundColor: tokens.greenLight },
   dim: { opacity: 0.5 },
   buttonLabel: {
     fontFamily: tokens.font,

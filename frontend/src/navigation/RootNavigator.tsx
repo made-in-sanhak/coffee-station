@@ -27,7 +27,6 @@ import ReceiptScreen from '../screens/receipt/ReceiptScreen';
 import ReceiptReviewScreen from '../screens/receipt/ReceiptReviewScreen';
 import CalendarScreen from '../screens/purchase/CalendarScreen';
 import CouponsScreen from '../screens/coupon/CouponsScreen';
-import GarageScreen from '../screens/mypage/GarageScreen';
 import OwnerScreen from '../screens/owner/OwnerScreen';
 import OwnerMenusScreen from '../screens/owner/OwnerMenusScreen';
 import OwnerOrdersScreen from '../screens/owner/OwnerOrdersScreen';
@@ -97,7 +96,6 @@ export default function RootNavigator() {
       <Stack.Screen name="ReceiptReview" component={ReceiptReviewScreen} />
       <Stack.Screen name="Calendar" component={CalendarScreen} />
       <Stack.Screen name="Coupons" component={CouponsScreen} />
-      <Stack.Screen name="Garage" component={GarageScreen} />
       <Stack.Screen name="Owner" component={OwnerScreen} />
       <Stack.Screen name="OwnerInvite" component={OwnerInviteScreen} />
       <Stack.Screen name="OwnerStoreConfirm" component={OwnerStoreConfirmScreen} />

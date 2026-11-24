@@ -84,7 +84,7 @@ export default function OwnerScreen({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="내 기록"
-            onPress={() => navigation.navigate('Garage')}
+            onPress={() => navigation.navigate('Calendar')}
           >
             <Asset name="user" />
           </Pressable>

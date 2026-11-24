@@ -1,30 +1,31 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Plus } from 'lucide-react-native';
 import { api, useResource } from '../../app/api';
-import type { Purchase } from '../../app/domain';
+import type { Coupon, Purchase } from '../../app/domain';
 import { tokens, Button, Empty, Screen, formatMoney } from '../../app/ui';
 import type { RootStackScreenProps } from '../../navigation/types';
 import { usePersonalStore } from '../../store/personalStore';
 import { useSessionStore } from '../../store/sessionStore';
-import { CaffeineGauge, RewardAsset } from '../receipt/RewardVisuals';
+import { RewardAsset } from '../receipt/RewardVisuals';
 import { rewardColors as c, rewardStyles as s } from '../receipt/RewardStyles';
 import {
+  averagePerCup,
+  couponStatus,
   localDateKey,
   monthCells,
   moveMonth,
   purchaseDateKey,
   purchaseSourceLabel,
+  RECEIPTS_PER_COUPON,
+  receiptCouponProgress,
   recordsOnDate,
   summarizePurchases,
+  type ReceiptRewardStatistics,
 } from './purchaseMath';
 
 const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
-type PurchaseStatistics = {
-  count?: number;
-  visitedCafeCount?: number;
-  reviewCount?: number;
-  savedAmount?: number;
-};
+type PurchaseStatistics = ReceiptRewardStatistics & { reviewCount?: number };
 const time = (value: string) => {
   const date = new Date(value);
   return `${String(date.getHours()).padStart(2, '0')}:${String(
@@ -59,7 +60,7 @@ export default function CalendarScreen({
     undefined,
     !!user,
   );
-  const history = useResource<Purchase[]>('/api/purchases', undefined, !!user);
+  const coupons = useResource<Coupon[]>('/api/coupons', undefined, !!user);
   const purchases = useMemo(
     () =>
       [
@@ -77,55 +78,35 @@ export default function CalendarScreen({
       purchasedAt: record.purchasedAt,
       totalAmount: record.total,
       totalCups: record.quantity,
-      caffeineMg: (record.caffeineMg ?? 0) * record.quantity,
     })),
     year,
     month,
   );
-  const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
-  const monthRecords = purchases.filter(record =>
-    purchaseDateKey(record.purchasedAt).startsWith(monthPrefix),
-  );
-  const noKnownCaffeine =
-    monthRecords.length > 0 &&
-    monthRecords.every(record => record.caffeineMg === null);
   const selected = recordsOnDate(purchases, selectedKey);
   const total = selected.reduce((sum, item) => sum + item.total, 0);
   const cups = selected.reduce((sum, item) => sum + item.quantity, 0);
-  const caffeine = selected.reduce(
-    (sum, item) => sum + (item.caffeineMg ?? 0) * item.quantity,
-    0,
-  );
-  const unknown = selected.some(item => item.caffeineMg === null);
-  const dayLabel = selectedKey === localDateKey(now) ? '오늘' : '선택한 날';
-  const knownHistory = [
-    ...new Map(
-      [...(history.data ?? []), ...purchases].map(record => [record.id, record]),
-    ).values(),
-  ].filter(record => !deletedIds.includes(record.id));
-  const knownCups = knownHistory.reduce((sum, record) => sum + record.quantity, 0);
-  const knownVisits = new Set(
-    knownHistory.map(record => record.cafeId || record.cafeName),
-  ).size;
-  const lifetimeStats = [
-    { label: '누적 주유', value: `${Math.max(statistics.data?.count ?? 0, knownCups)}잔` },
-    {
-      label: '방문 카페',
-      value: `${Math.max(statistics.data?.visitedCafeCount ?? 0, knownVisits)}곳`,
-    },
+  const perCup = averagePerCup(stats.totalAmount, stats.totalCups);
+  const monthStats = [
+    { label: '이번 달 지출', value: formatMoney(stats.totalAmount) },
+    { label: '구매', value: `${stats.totalCups}잔` },
     {
       label: '작성 리뷰',
-      value: statistics.data?.reviewCount === undefined
-        ? '—'
-        : `${statistics.data.reviewCount}개`,
+      value:
+        statistics.data?.reviewCount === undefined
+          ? '—'
+          : `${statistics.data.reviewCount}개`,
     },
-    {
-      label: '아낀 금액',
-      value: statistics.data?.savedAmount === undefined
-        ? '—'
-        : formatMoney(statistics.data.savedAmount),
-    },
+    { label: '한 잔 평균', value: perCup === null ? '—' : formatMoney(perCup) },
   ];
+  const availableCoupons = (user ? coupons.data ?? [] : []).filter(
+    coupon => couponStatus(coupon) === 'available',
+  ).length;
+  const progress = user ? receiptCouponProgress(statistics.data) : undefined;
+  const couponSummary = !user
+    ? '로그인하면 영수증 인증으로 쿠폰을 받아요 · 눌러서 쿠폰 보기'
+    : progress === undefined
+    ? '눌러서 쿠폰 보기'
+    : `다음 쿠폰까지 영수증 ${RECEIPTS_PER_COUPON - progress}회 · 눌러서 쿠폰 보기`;
   const cells = monthCells(year, month);
   const weeks = Array.from({ length: cells.length / 7 }, (_, index) =>
     cells.slice(index * 7, index * 7 + 7),
@@ -151,7 +132,6 @@ export default function CalendarScreen({
       if (!record.id.startsWith('local-') && user) {
         resource.reload();
         statistics.reload();
-        history.reload();
       }
     } catch (cause) {
       setError(
@@ -164,11 +144,7 @@ export default function CalendarScreen({
       record.cafeName,
       `${record.menuName} · ${record.quantity}잔\n${formatMoney(
         record.total,
-      )} · ${
-        record.caffeineMg === null
-          ? '카페인 미등록'
-          : `${record.caffeineMg * record.quantity}mg`
-      }\n${purchaseSourceLabel(record)}`,
+      )}\n${purchaseSourceLabel(record)}`,
       [
         { text: '닫기', style: 'cancel' },
         ...(record.cafeId
@@ -189,7 +165,23 @@ export default function CalendarScreen({
     );
   };
   return (
-    <Screen navigation={navigation} tab="garage">
+    <Screen
+      navigation={navigation}
+      tab="record"
+      contentStyle={st.fabClearance}
+      floating={
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="영수증 등록"
+          testID="calendar-receipt-fab"
+          onPress={() => navigation.navigate('Receipt')}
+          style={({ pressed }) => [st.fab, pressed && st.pressed]}
+        >
+          <Plus size={18} color={tokens.white} strokeWidth={2.5} />
+          <Text style={st.fabLabel}>영수증 등록</Text>
+        </Pressable>
+      }
+    >
       <View style={s.content}>
         {personalError && (
           <View style={s.card}>
@@ -235,25 +227,14 @@ export default function CalendarScreen({
           onPress={() => navigation.navigate('Preferences')}
         />
         <View style={s.stats}>
-          <View style={s.stat}>
-            <Text style={s.small}>이번 달 지출</Text>
-            <Text style={s.statValue}>{formatMoney(stats.totalAmount)}</Text>
-          </View>
-          <View style={s.stat}>
-            <Text style={s.small}>구매</Text>
-            <Text style={s.statValue}>{stats.totalCups}잔</Text>
-          </View>
-          <View style={s.stat}>
-            <Text
-              style={s.small}
-              accessibilityLabel="카페인 평균, 구매 기록이 있는 날의 확인된 함량 기준"
-            >
-              카페인 평균
-            </Text>
-            <Text style={s.statValue}>
-              {noKnownCaffeine ? '—' : `${stats.averageCaffeineMg}mg`}
-            </Text>
-          </View>
+          {monthStats.map(({ label, value }) => (
+            <View key={label} style={s.stat}>
+              <Text style={s.small}>{label}</Text>
+              <Text style={s.statValue} numberOfLines={1} adjustsFontSizeToFit>
+                {value}
+              </Text>
+            </View>
+          ))}
         </View>
         <View style={st.calendar}>
           <View style={st.week}>
@@ -309,37 +290,22 @@ export default function CalendarScreen({
             </View>
           ))}
         </View>
-        <View style={[s.card, st.gaugeCard]}>
-          <View style={[s.row, s.gap16]}>
-            <CaffeineGauge value={caffeine} day={dayLabel} />
-            <View style={[s.flex, s.gap4]}>
-              <View style={[s.row, s.gap4]}>
-                <RewardAsset name="gauge" />
-                <Text style={s.heading}>카페인 계기판</Text>
-              </View>
-              <Text style={[s.subtitle, st.gaugeValue]}>
-                {dayLabel} {caffeine}mg / 참고 400mg
-              </Text>
-              <Text style={s.small}>
-                {unknown
-                  ? '함량 미등록 메뉴가 포함돼 있어요.'
-                  : selected.length === 0
-                    ? '구매 기록을 추가하면 함량을 볼 수 있어요.'
-                    : '기록된 메뉴의 카페인 함량이에요.'}
-              </Text>
-            </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`쿠폰함, 사용 가능 쿠폰 ${availableCoupons}장. ${couponSummary}`}
+          testID="calendar-coupon-shortcut"
+          onPress={() => navigation.navigate('Coupons')}
+          style={({ pressed }) => [st.couponShortcut, pressed && st.pressed]}
+        >
+          <RewardAsset name="ticket" />
+          <View style={[s.flex, s.gap2]}>
+            <Text style={st.couponTitle}>
+              쿠폰함 · 사용 가능 쿠폰 {availableCoupons}장
+            </Text>
+            <Text style={st.couponSummary}>{couponSummary}</Text>
           </View>
-        </View>
-        <View style={s.stats}>
-          {lifetimeStats.map(({ label, value }) => (
-            <View key={label} style={[s.stat, st.centeredStat]}>
-              <Text style={s.statValue} numberOfLines={1} adjustsFontSizeToFit>
-                {value}
-              </Text>
-              <Text style={s.small}>{label}</Text>
-            </View>
-          ))}
-        </View>
+          <RewardAsset name="right" />
+        </Pressable>
         <View style={s.card}>
           <View style={s.between}>
             <Text style={[s.heading, s.font15]}>
@@ -388,26 +354,7 @@ export default function CalendarScreen({
             onPress={resource.reload}
           />
         )}
-        <Button
-          label="영수증 등록하기"
-          onPress={() => navigation.navigate('Receipt')}
-        />
-        <View style={s.row}>
-          <View style={s.flex}>
-            <Button
-              label="쿠폰함"
-              variant="outline"
-              onPress={() => navigation.navigate('Coupons')}
-            />
-          </View>
-          <View style={s.flex}>
-            <Button
-              label="나의 차고"
-              variant="outline"
-              onPress={() => navigation.navigate('Garage')}
-            />
-          </View>
-        </View>
+
       </View>
     </Screen>
   );
@@ -415,9 +362,54 @@ export default function CalendarScreen({
 
 const st = StyleSheet.create({
   timeWidth: { width: 33 },
-  gaugeCard: { paddingVertical: 14 },
-  gaugeValue: { color: c.brown },
-  centeredStat: { alignItems: 'center', paddingHorizontal: 4, gap: 0 },
+  // 플로팅 버튼이 마지막 카드를 가리지 않도록 아래 여백을 둡니다.
+  fabClearance: { paddingBottom: 88 },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: c.green,
+    shadowColor: c.text,
+    shadowOpacity: 0.14,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  fabLabel: {
+    fontFamily: tokens.font,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+    color: c.white,
+  },
+  pressed: { opacity: 0.8 },
+  couponShortcut: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: c.greenLight,
+  },
+  couponTitle: {
+    fontFamily: tokens.font,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+    color: c.green,
+  },
+  couponSummary: {
+    fontFamily: tokens.font,
+    fontSize: 12,
+    lineHeight: 17,
+    color: c.greenMid,
+  },
   calendar: {
     backgroundColor: c.white,
     borderWidth: 1,

@@ -56,6 +56,24 @@ export function summarizePurchases(
   };
 }
 
+// 한 잔 평균 = 지출 ÷ 잔 수 (반올림). 구매가 없으면 null.
+export function averagePerCup(totalAmount: number, totalCups: number) {
+  return totalCups > 0 ? Math.round(totalAmount / totalCups) : null;
+}
+
+export const RECEIPTS_PER_COUPON = 3;
+export interface ReceiptRewardStatistics {
+  stamps?: number;
+  receiptReward?: { total: number; progress: number; target: number };
+}
+// 다음 쿠폰까지 모은 영수증 수(0~2). 통계가 없으면 undefined.
+export function receiptCouponProgress(statistics?: ReceiptRewardStatistics) {
+  const value = statistics?.receiptReward?.progress ?? statistics?.stamps;
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.floor(value)) % RECEIPTS_PER_COUPON
+    : undefined;
+}
+
 export type CouponStatus = 'available' | 'used' | 'expired';
 export function couponStatus(
   coupon: { usedAt?: string | null; expiresAt: string; status?: string },

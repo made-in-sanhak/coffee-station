@@ -70,7 +70,8 @@ router.get('/options',async(_req,res)=>{
     res.json(ok(rows.map(row=>String(row.size))));
   } catch {throw new AppError(503,'매장 사이즈 정보를 조회할 수 없습니다.');}
 });
-router.get('/',async(req,res)=>{
+router.get('/',async(req,res,next)=>{
+  if (req.query.query !== undefined || (req.query.latitude === undefined && req.query.longitude === undefined)) { next(); return; }
   if(env.nodeEnv==='production'||env.catalogMode!=='mysql-seed') throw new AppError(503,'개발용 DB 지도 조회를 활성화하세요.');
   res.json(ok(await nearby(req.query)));
 });

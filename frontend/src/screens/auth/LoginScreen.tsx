@@ -106,10 +106,8 @@ export default function LoginScreen({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="점주 계정으로 로그인"
-          onPress={() => Alert.alert(
-            '점주 계정 로그인',
-            '점주 계정 로그인은 현재 연결되어 있지 않아요. 이용하려면 서비스에서 점주 권한을 확인해야 해요.',
-          )}
+          testID="login-owner"
+          onPress={() => navigation.navigate('OwnerLogin')}
         >
           <Text style={styles.ownerLogin}>점주이신가요? 점주 계정으로 로그인</Text>
         </Pressable>

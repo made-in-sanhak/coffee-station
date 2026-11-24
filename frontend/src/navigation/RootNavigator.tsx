@@ -35,6 +35,9 @@ import PaymentPendingScreen from '../screens/order/PaymentPendingScreen';
 import OrderCompleteScreen from '../screens/order/OrderCompleteScreen';
 import PaymentFailureScreen from '../screens/order/PaymentFailureScreen';
 import EventsScreen from '../screens/events/EventsScreen';
+import OwnerLoginScreen from '../screens/owner/invite/OwnerLoginScreen';
+import OwnerInviteScreen from '../screens/owner/invite/OwnerInviteScreen';
+import OwnerStoreConfirmScreen from '../screens/owner/invite/OwnerStoreConfirmScreen';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function RootNavigator() {
   const isLoggedIn = useAuthStore(state => state.accessToken !== null);
@@ -94,6 +97,8 @@ export default function RootNavigator() {
       <Stack.Screen name="Calendar" component={CalendarScreen} />
       <Stack.Screen name="Coupons" component={CouponsScreen} />
       <Stack.Screen name="Owner" component={OwnerScreen} />
+      <Stack.Screen name="OwnerInvite" component={OwnerInviteScreen} />
+      <Stack.Screen name="OwnerStoreConfirm" component={OwnerStoreConfirmScreen} />
       <Stack.Screen name="OwnerMenus" component={OwnerMenusScreen} />
       <Stack.Screen name="OwnerOrders" component={OwnerOrdersScreen} />
       <Stack.Screen name="Order" component={OrderScreen} />
@@ -105,6 +110,7 @@ export default function RootNavigator() {
 
       <Stack.Group navigationKey={isLoggedIn ? `auth-${sessionRevision}` : 'guest'}>
         <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="OwnerLogin" component={OwnerLoginScreen} />
         <Stack.Screen
           name="KakaoLogin"
           component={KakaoLoginScreen}

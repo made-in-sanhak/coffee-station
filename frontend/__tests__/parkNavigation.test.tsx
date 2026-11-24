@@ -24,7 +24,7 @@ beforeEach(() => {
 test('a fresh development launch has login and isolated MVP test, no Map bypass', async () => {
   let tree: Renderer.ReactTestRenderer;
   await act(() => { tree = Renderer.create(<RootNavigator />); });
-  expect(routes(tree!)).toEqual(['Login', 'KakaoLogin', 'MidtermTest']);
+  expect(routes(tree!)).toEqual(['Login', 'OwnerLogin', 'KakaoLogin', 'MidtermTest']);
   await act(() => tree!.unmount());
 });
 
@@ -51,11 +51,11 @@ test('Park preference skip retains flow and preview private-action login routes 
   await act(() => element.props.onSkip());
   expect(usePreferenceStore.getState().preferences).toBeNull();
   expect(navigation.replace).toHaveBeenCalledWith('Map');
-  for (const name of ['Map','Login','KakaoLogin','LocationPermission','Recommend','Community','Calendar','Receipt','CafeDetail','Order'])
+  for (const name of ['Map','Login','KakaoLogin','LocationPermission','Recommend','Community','Calendar','Receipt','CafeDetail','Order','OwnerInvite','OwnerStoreConfirm'])
     expect(routes(tree!)).toContain(name);
   expect(routes(tree!)).not.toContain('Garage');
   await act(() => useAuthStore.getState().logout());
-  expect(routes(tree!)).toEqual(['Login', 'KakaoLogin', 'MidtermTest']);
+  expect(routes(tree!)).toEqual(['Login', 'OwnerLogin', 'KakaoLogin', 'MidtermTest']);
   await act(() => tree!.unmount());
 });
 
@@ -65,7 +65,7 @@ test('release launch exposes no development MVP route', async () => {
   try {
     (globalThis as typeof globalThis & {__DEV__: boolean}).__DEV__ = false;
     await act(() => {tree = Renderer.create(<RootNavigator />);});
-    expect(routes(tree!)).toEqual(['Login', 'KakaoLogin']);
+    expect(routes(tree!)).toEqual(['Login', 'OwnerLogin', 'KakaoLogin']);
   } finally {
     if (tree) await act(() => tree!.unmount());
     (globalThis as typeof globalThis & {__DEV__: boolean}).__DEV__ = previous;

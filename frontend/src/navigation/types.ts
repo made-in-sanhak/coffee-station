@@ -1,7 +1,9 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { Cafe, ReceiptDraft, RecommendationRequest } from '../app/domain';
+import type { OwnerInviteCafe } from '../types/owner';
 
 export type LoginReturnTarget =
+  | { name: 'OwnerInvite'; params: { code?: string } | undefined }
   | { name: 'ReviewWrite'; params: { cafeId?: string } | undefined }
   | { name: 'ReviewDetail'; params: { reviewId: string } }
   | { name: 'MeetupCreate'; params: undefined }
@@ -14,6 +16,9 @@ export type RootStackParamList = {
   Notification: undefined;
   Login: { owner?: boolean; returnTo?: LoginReturnTarget } | undefined;
   KakaoLogin: { returnTo?: LoginReturnTarget } | undefined;
+  OwnerLogin: undefined;
+  OwnerInvite: { code?: string } | undefined;
+  OwnerStoreConfirm: { code: string; cafe: OwnerInviteCafe };
   Map: undefined;
   Settings: undefined;
   Preferences: undefined;

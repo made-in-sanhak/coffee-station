@@ -51,7 +51,9 @@ export default function CompareScreen({
   );
   const [sort, setSort] = useState<CafeSort>('price');
   const [choosingMenu, setChoosingMenu] = useState(false);
-  const temperature = preferences.temperatures[0] ?? 'ICE';
+  const temperature = menu.trim().startsWith('아이스 ')
+    ? 'ICE'
+    : preferences.temperatures[0] ?? 'ICE';
   const result = useResource<Comparison>('/api/menus/compare', {
     menu,
     size,

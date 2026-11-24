@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import type { RowDataPacket } from 'mysql2';
 import { pool } from '../config/db';
+import { transaction } from '../config/transaction';
 import { ok } from '../common/response';
 import { AppError } from '../common/AppError';
 import { actor } from '../modules/community/auth';
@@ -60,16 +61,14 @@ router.get('/',async(req,res)=>{
 router.post('/',async(req,res)=>{
  const user=(await actor(req,true))!;const body=object(req.body);
  const cafeId=id(body.cafeId,'매장 ID'),rating=integer(body.rating,'별점',1,5),content=text(body.text,'리뷰',2000),cat=category(body.category),images=photos(body.images);
- const connection=await pool.getConnection(); const review=randomUUID();
- try{
-   await connection.beginTransaction();
+ const review=randomUUID();
+ await transaction(async connection=>{
    const [cafes]=await connection.execute<RowDataPacket[]>('SELECT cafe_id FROM cafes WHERE cafe_id=? FOR UPDATE',[cafeId]);
    if(!cafes.length)throw new AppError(404,'매장을 찾을 수 없습니다.');
    await connection.execute('INSERT INTO community_reviews(id,cafe_id,author_id,author_nickname,rating,content,category) VALUES(?,?,?,?,?,?,?)',[review,cafeId,user.id,user.nickname,rating,content,cat]);
    for(let i=0;i<images.length;i++)await connection.execute('INSERT INTO community_review_images(id,review_id,position,mime_type,image_data) VALUES(?,?,?,?,?)',[randomUUID(),review,i,images[i].type,images[i].data]);
    await connection.execute(`UPDATE cafes SET review_count=(SELECT COUNT(*) FROM community_reviews WHERE cafe_id=?),rating_avg=(SELECT COALESCE(AVG(rating),0) FROM community_reviews WHERE cafe_id=?) WHERE cafe_id=?`,[cafeId,cafeId,cafeId]);
-   await connection.commit();
- }catch(e){await connection.rollback();throw e;}finally{connection.release();}
+ });
  res.status(201).json(ok(await detail(review,user.id)));
 });
 router.get('/:id/comments',async(req,res)=>{
@@ -85,15 +84,13 @@ router.post('/:id/comments',async(req,res)=>{
  res.status(201).json(ok({...rows[0],authorNickname:user.nickname}));
 });
 router.post('/:id/like',async(req,res)=>{
- const user=(await actor(req,true))!;const value=reviewId(req.params.id);const connection=await pool.getConnection();
- try{
-   await connection.beginTransaction();
+ const user=(await actor(req,true))!;const value=reviewId(req.params.id);
+ await transaction(async connection=>{
    const [rows]=await connection.execute<RowDataPacket[]>('SELECT id FROM community_reviews WHERE id=? FOR UPDATE',[value]);
    if(!rows.length)throw new AppError(404,'리뷰를 찾을 수 없습니다.');
    const [likes]=await connection.execute<RowDataPacket[]>('SELECT user_id FROM community_review_likes WHERE review_id=? AND user_id=?',[value,user.id]);
    await connection.execute(likes.length?'DELETE FROM community_review_likes WHERE review_id=? AND user_id=?':'INSERT INTO community_review_likes(review_id,user_id) VALUES(?,?)',[value,user.id]);
-   await connection.commit();
- }catch(e){await connection.rollback();throw e;}finally{connection.release();}
+ });
  res.json(ok(await detail(value,user.id)));
 });
 router.get('/:id',async(req,res)=>{const user=await actor(req);res.json(ok(await detail(reviewId(req.params.id),user?.id??null)));});

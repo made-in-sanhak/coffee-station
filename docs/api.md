@@ -18,6 +18,16 @@
 | `GET /api/cafes/:id` | 숫자 매장 ID | 매장 상세. 없는 ID는 404 |
 | `GET /api/cafes/:id/menus` | 숫자 매장 ID | 매장 메뉴·가격 목록. 없는 ID는 404 |
 
+## 카카오 로그인
+
+접두사 없이 `/auth`를 쓴다. 서버가 `.env`의 `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_REDIRECT_URI`로 카카오 토큰을 교환한다. 클라이언트 시크릿은 서버에서만 사용하며 앱에 넣지 않는다.
+
+| 경로 | 요청 | 처리 |
+| --- | --- | --- |
+| `POST /auth/kakao` | `{ "code": "카카오 인가 코드", "redirectUri": "http://localhost:8080/auth/kakao/callback" }` | 인가 코드를 카카오 토큰으로 교환한 뒤 사용자 정보를 조회해 `{"success":true,"data":{"profile":{"kakaoId":"123","nickname":"...","profileImageUrl":null}},"message":null}` 반환 |
+
+`code`가 비어 있으면 400, `redirectUri`가 서버 설정 `KAKAO_REDIRECT_URI`와 다르면 400이다. 서버에 카카오 설정이 없으면 500, 카카오 토큰 교환·사용자 조회가 실패하면(예: 시크릿 누락 KOE010, 만료된 인가 코드) 401이다. 회원 저장과 서비스 JWT 발급은 아직 구현하지 않았으므로, 응답은 프론트가 기대하는 `{ accessToken, refreshToken, user }` 형식이 아니다.
+
 ## 개발용 추천 탭 경로 (2026-11-11)
 
 현재 Express 접두사는 `/api/recommendations`이며 `/api/v1` 제품 명세와 다르다. `NODE_ENV=production`에서는 모든 추천 경로가 503으로 차단된다. `MVP_CATALOG_MODE=mysql-seed`에서 행신 DEMO 가격만 조회한다.

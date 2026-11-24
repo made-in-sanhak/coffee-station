@@ -1,6 +1,7 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { Cafe, ReceiptDraft, RecommendationRequest } from '../app/domain';
 import type { OwnerInviteCafe } from '../types/owner';
+import type { MenuBoardCategory, MenuBoardMode } from '../types/menuBoard';
 
 export type LoginReturnTarget =
   | { name: 'OwnerInvite'; params: { code?: string } | undefined }
@@ -19,6 +20,12 @@ export type RootStackParamList = {
   OwnerLogin: undefined;
   OwnerInvite: { code?: string } | undefined;
   OwnerStoreConfirm: { code: string; cafe: OwnerInviteCafe };
+  OwnerMenuOnboarding: { cafe: OwnerInviteCafe };
+  MenuBoardCapture: { mode: MenuBoardMode; cafe: OwnerInviteCafe };
+  MenuBoardProcessing: undefined;
+  MenuBoardReview: undefined;
+  MenuRegisterDone: { count: number; counts: Record<MenuBoardCategory, number> };
+  MenuBoardDiff: undefined;
   Map: undefined;
   Settings: undefined;
   Preferences: undefined;
@@ -41,7 +48,7 @@ export type RootStackParamList = {
   Coupons: undefined;
   Garage: undefined;
   Owner: undefined;
-  OwnerMenus: { cafeId?: string; mode?: 'event' } | undefined;
+  OwnerMenus: { cafeId?: string; mode?: 'event'; refreshedAt?: number } | undefined;
   Order: { dealId: string };
   PaymentPending: { orderId: string; paymentUrl?: string };
   OrderComplete: { orderId: string };

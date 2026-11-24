@@ -43,7 +43,12 @@ export default function OwnerInviteScreen({
     let active = true;
     getOwnerLinkStatus()
       .then(status => {
-        if (active && status.linked) navigation.replace('Owner');
+        if (!active || !status.linked) return;
+        if (status.menuCount === 0 && status.cafe) {
+          navigation.replace('OwnerMenuOnboarding', { cafe: status.cafe });
+        } else {
+          navigation.replace('Owner');
+        }
       })
       .catch(() => undefined);
     return () => {

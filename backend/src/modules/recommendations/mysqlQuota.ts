@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool, RowDataPacket } from 'mysql2/promise';
 import type { QuotaPolicy, QuotaStore, Reservation } from './quota';
+import { quotaDayStart } from './quota';
 
 interface Attempt extends RowDataPacket {
   attempted_at_ms: number | string;
@@ -12,6 +13,7 @@ export class MysqlQuotaStore implements QuotaStore {
 
   async reserve(userId: string, policy: QuotaPolicy): Promise<Reservation> {
     const conn = await this.pool.getConnection();
+    let destroyed = false;
     try {
       // The user row serializes reservations; range locks could block other users' inserts.
       await conn.query('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
@@ -25,7 +27,7 @@ export class MysqlQuotaStore implements QuotaStore {
         'SELECT TIMESTAMPDIFF(MICROSECOND, \'1970-01-01\', UTC_TIMESTAMP(3)) DIV 1000 AS now_ms',
       );
       const now = Number(clock.now_ms);
-      const day = Math.floor(now / 86400000) * 86400000;
+      const day = quotaDayStart(now);
       const minuteStart = now - 60000;
       // shortcut: prune only active users' history; add retention cleanup before production rollout.
       await conn.execute(
@@ -61,11 +63,12 @@ export class MysqlQuotaStore implements QuotaStore {
       try {
         await conn.rollback();
       } catch {
+        destroyed = true;
         conn.destroy();
       }
       throw error;
     } finally {
-      conn.release();
+      if (!destroyed) conn.release();
     }
   }
 

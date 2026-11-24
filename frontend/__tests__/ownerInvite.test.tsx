@@ -154,6 +154,15 @@ test('a deep link code is filled in and an already linked owner goes straight to
   });
   expect(navigation.replace).toHaveBeenCalledWith('Owner');
   await act(() => tree.unmount());
+
+  mockStatus.mockResolvedValue({ linked: true, cafe, menuCount: 0 });
+  await act(() => {
+    tree = Renderer.create(
+      <OwnerInviteScreen {...({ navigation, route: route('OwnerInvite', undefined) } as any)} />,
+    );
+  });
+  expect(navigation.replace).toHaveBeenLastCalledWith('OwnerMenuOnboarding', { cafe });
+  await act(() => tree.unmount());
 });
 
 test('store confirm links the account and resets to the owner center, or goes back for another store', async () => {
@@ -174,7 +183,15 @@ test('store confirm links the account and resets to the owner center, or goes ba
     await pressable(tree, 'owner-store-confirm').props.onPress();
   });
   expect(mockAccept).toHaveBeenCalledWith('K72MQ8');
-  expect(navigation.reset).toHaveBeenCalledWith({ index: 1, routes: [{ name: 'Map' }, { name: 'Owner' }] });
+  expect(navigation.reset).toHaveBeenLastCalledWith({
+    index: 1,
+    routes: [{ name: 'Map' }, { name: 'OwnerMenuOnboarding', params: { cafe } }],
+  });
+  mockAccept.mockResolvedValueOnce({ cafe, menuCount: 5 });
+  await act(async () => {
+    await pressable(tree, 'owner-store-confirm').props.onPress();
+  });
+  expect(navigation.reset).toHaveBeenLastCalledWith({ index: 1, routes: [{ name: 'Map' }, { name: 'Owner' }] });
   await act(() => tree.unmount());
 });
 

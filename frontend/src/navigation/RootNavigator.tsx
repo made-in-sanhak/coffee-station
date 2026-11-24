@@ -38,6 +38,12 @@ import EventsScreen from '../screens/events/EventsScreen';
 import OwnerLoginScreen from '../screens/owner/invite/OwnerLoginScreen';
 import OwnerInviteScreen from '../screens/owner/invite/OwnerInviteScreen';
 import OwnerStoreConfirmScreen from '../screens/owner/invite/OwnerStoreConfirmScreen';
+import OwnerMenuOnboardingScreen from '../screens/owner/menuBoard/OwnerMenuOnboardingScreen';
+import MenuBoardCaptureScreen from '../screens/owner/menuBoard/MenuBoardCaptureScreen';
+import MenuBoardProcessingScreen from '../screens/owner/menuBoard/MenuBoardProcessingScreen';
+import MenuBoardReviewScreen from '../screens/owner/menuBoard/MenuBoardReviewScreen';
+import MenuRegisterDoneScreen from '../screens/owner/menuBoard/MenuRegisterDoneScreen';
+import MenuBoardDiffScreen from '../screens/owner/menuBoard/MenuBoardDiffScreen';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function RootNavigator() {
   const isLoggedIn = useAuthStore(state => state.accessToken !== null);
@@ -99,6 +105,20 @@ export default function RootNavigator() {
       <Stack.Screen name="Owner" component={OwnerScreen} />
       <Stack.Screen name="OwnerInvite" component={OwnerInviteScreen} />
       <Stack.Screen name="OwnerStoreConfirm" component={OwnerStoreConfirmScreen} />
+      <Stack.Screen
+        name="OwnerMenuOnboarding"
+        component={OwnerMenuOnboardingScreen}
+        options={{ gestureEnabled: false }}
+      />
+      <Stack.Screen name="MenuBoardCapture" component={MenuBoardCaptureScreen} />
+      <Stack.Screen name="MenuBoardProcessing" component={MenuBoardProcessingScreen} />
+      <Stack.Screen name="MenuBoardReview" component={MenuBoardReviewScreen} />
+      <Stack.Screen
+        name="MenuRegisterDone"
+        component={MenuRegisterDoneScreen}
+        options={{ gestureEnabled: false }}
+      />
+      <Stack.Screen name="MenuBoardDiff" component={MenuBoardDiffScreen} />
       <Stack.Screen name="OwnerMenus" component={OwnerMenusScreen} />
       <Stack.Screen name="OwnerOrders" component={OwnerOrdersScreen} />
       <Stack.Screen name="Order" component={OrderScreen} />

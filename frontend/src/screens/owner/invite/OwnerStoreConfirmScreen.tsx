@@ -21,11 +21,17 @@ export default function OwnerStoreConfirmScreen({
     setBusy(true);
     setError(null);
     try {
-      await acceptOwnerInvite(code);
+      const result = await acceptOwnerInvite(code);
       // 연결 뒤에는 뒤로 가기로 코드 입력 화면에 돌아오지 않게 쌓인 화면을 정리합니다.
+      // 등록된 메뉴가 없으면 메뉴판 등록 안내를 반드시 거칩니다.
       navigation.reset({
         index: 1,
-        routes: [{ name: 'Map' }, { name: 'Owner' }],
+        routes: [
+          { name: 'Map' },
+          result.menuCount === 0
+            ? { name: 'OwnerMenuOnboarding', params: { cafe: result.cafe } }
+            : { name: 'Owner' },
+        ],
       });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '매장을 연결하지 못했어요. 다시 시도해 주세요.');

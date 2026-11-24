@@ -26,3 +26,17 @@ npm test
 Remove-Item Env:QUOTA_TEST_PORT
 docker stop coffee-quota-test
 ```
+
+## 커뮤니티·로그인 통합 (005)
+
+005_unified_auth는 scripts/apply-community.cjs를 통해 적용한다. SQL만 실행하면 작성자 매핑이 완료되지 않는다.
+백엔드를 중지하고 백업한 뒤 `npm run db:community`를 사용한다. 운영 환경은 승인된 배포 migration 절차에서
+동일한 migrateAuth(connection)를 실행한다. community 전용 스크립트는 production에서 실행을 거부한다.
+
+팀 users/refresh_tokens와 로컬 로그인 보안 검증을 하나로 통합한다. 기존 로컬 ID는 카카오 ID로 매칭하고,
+작성자 관계를 users FK로 바꾼다. 이전 계정/세션 테이블은 legacy_ 접두사로 보관한다. 삭제하지 않는다.
+004는 이전 구조 기록이며 새 설치에서는 실행하지 않는다. 이전 access/refresh는 재로그인이 필요하다.
+프론트는 /auth/kakao/start의 state/flowToken을 사용해야 한다. 새 프론트/백엔드를 함께 반영한다.
+
+실행 순서, 백업·재실행·검증은 docs/local-login-integration.md를 참조한다.
+CI의 Community and auth (features/migration)는 각각 독립 MySQL 8.4 DB에서 기능/이전 테스트를 수행한다.

@@ -1,4 +1,6 @@
 import storesRouter from './routes/stores';
+import reviewsRouter, { reviewImagesRouter } from './routes/reviews';
+import { comparisonRouter, cafeFeaturesRouter } from './modules/community/cafes';
 import express from 'express';
 import cors from 'cors';
 import healthRouter from './routes/health';
@@ -16,9 +18,15 @@ export const app = express();
 app.set('trust proxy', 1);
 
 app.use(cors());
+// Existing photo form: up to three 2 MiB images encoded as base64.
+app.use('/api/reviews', express.json({ limit: '9mb' }));
 app.use(express.json({ limit: '1mb' }));
 
 app.use('/health', healthRouter);
+app.use('/api/reviews', reviewsRouter);
+app.use('/api/review-images', reviewImagesRouter);
+app.use('/api/menus', comparisonRouter);
+app.use('/api/cafes', cafeFeaturesRouter);
 app.use('/api/recommendations', recommendationsRouter);
 app.use('/api/cafes', reviewSummariesRouter);
 app.use('/api/cafes', cafesRouter);

@@ -10,7 +10,8 @@
     "test": "npm run build && node --test tests/*.cjs",
     "build": "tsc",
     "start": "node dist/server.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:community": "npm run build && node scripts/apply-community.cjs"
   },
   "dependencies": {
     "cors": "^2.8.6",

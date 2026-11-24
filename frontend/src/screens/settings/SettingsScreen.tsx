@@ -1,18 +1,9 @@
-
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  Alert,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { apiFetch } from '../../api/client';
 import { Button, Screen, tokens } from '../../app/ui';
 import type { RootStackScreenProps } from '../../navigation/types';
 import { useAuthStore } from '../../store/authStore';
-import { useConfigStore } from '../../store/configStore';
 import { useSessionStore } from '../../store/sessionStore';
 import { CODE128_LICENSE } from '../coupon/barcode';
 
@@ -64,16 +55,14 @@ export default function SettingsScreen({
             setBusy(true);
 
             const refreshToken = useSessionStore.getState().refreshToken;
-            const backendUrl = useConfigStore.getState().backendUrl;
 
-            const revoke =
-              backendUrl && refreshToken
-                ? apiFetch('/api/auth/logout', {
-                    method: 'POST',
-                    authentication: 'none',
-                    body: JSON.stringify({ refreshToken }),
-                  }).catch(() => undefined)
-                : Promise.resolve();
+            const revoke = refreshToken
+              ? apiFetch('/api/auth/logout', {
+                  method: 'POST',
+                  authentication: 'none',
+                  body: JSON.stringify({ refreshToken }),
+                }).catch(() => undefined)
+              : Promise.resolve();
 
             try {
               await useSessionStore.getState().logout();
@@ -145,7 +134,8 @@ export default function SettingsScreen({
             <Text style={styles.licenseText}>
               Noto Sans KR · SIL Open Font License 1.1
               {'\n'}
-              전체 글꼴 라이선스는 앱에 포함된 fonts/OFL.txt에 보존되어 있습니다.
+              전체 글꼴 라이선스는 앱에 포함된 fonts/OFL.txt에 보존되어
+              있습니다.
             </Text>
           </ScrollView>
           <Button label="닫기" onPress={() => setLicense(false)} />

@@ -1,36 +1,70 @@
-// userStore 를 메모리 구현으로 바꿉니다. (실제 MySQL 에 접속하지 않음)
-// 반환값의 restore() 로 원래 구현을 되돌립니다.
 function installFakeUserStore(userStore) {
-  const original = { ...userStore };
-  const users = new Map(); // kakaoId -> user
-  const tokens = new Map(); // hash -> { userId, expiresAt, revokedAt }
+  const original = { ...userStore },
+    users = new Map(),
+    tokens = new Map(),
+    flows = new Map();
   let nextId = 1;
-  const byId = id => [...users.values()].find(user => user.id === id) ?? null;
-
+  const byId = id => [...users.values()].find(u => u.id === id) ?? null;
   Object.assign(userStore, {
-    async findUser(userId) { return byId(userId); },
-    async upsertKakaoUser(profile) {
-      const existing = users.get(profile.kakaoId);
-      const user = { id: existing?.id ?? nextId++, nickname: profile.nickname, profileImageUrl: profile.profileImageUrl, role: 'USER' };
-      users.set(profile.kakaoId, user);
-      return user;
+    async findUser(id) {
+      return byId(id);
     },
-    async saveRefreshToken(userId, hash, expiresAt) { tokens.set(hash, { userId, expiresAt, revokedAt: null }); },
-    async rotateRefreshToken(oldHash, next, now = new Date()) {
+    async upsertKakaoUser(profile) {
+      const old = users.get(profile.kakaoId);
+      const u = {
+        id: old?.id ?? nextId++,
+        nickname: profile.nickname,
+        profileImageUrl: profile.profileImageUrl,
+        role: 'USER',
+      };
+      users.set(profile.kakaoId, u);
+      return u;
+    },
+    async saveRefreshToken(userId, hash, expiresAt, sessionId) {
+      tokens.set(hash, { userId, expiresAt, sessionId, revokedAt: null });
+    },
+    async rotateRefreshToken(oldHash, next, now = new Date(), beforeSave) {
       const row = tokens.get(oldHash);
       if (!row || row.revokedAt || row.expiresAt <= now) return null;
+      const u = { ...byId(row.userId), sessionId: row.sessionId };
+      beforeSave?.(u);
       row.revokedAt = now;
-      tokens.set(next.hash, { userId: row.userId, expiresAt: next.expiresAt, revokedAt: null });
-      return byId(row.userId);
+      tokens.set(next.hash, {
+        userId: row.userId,
+        expiresAt: row.expiresAt,
+        sessionId: row.sessionId,
+        revokedAt: null,
+      });
+      return u;
     },
     async revokeRefreshToken(hash, now = new Date()) {
       const row = tokens.get(hash);
       if (!row || row.revokedAt) return false;
-      row.revokedAt = now;
+      for (const r of tokens.values())
+        if (r.sessionId === row.sessionId) r.revokedAt = now;
+      return true;
+    },
+    async authenticate(c) {
+      return [...tokens.values()].some(
+        r =>
+          r.userId === c.userId &&
+          r.sessionId === c.sessionId &&
+          !r.revokedAt &&
+          r.expiresAt > new Date(),
+      )
+        ? byId(c.userId)
+        : null;
+    },
+    async createLoginFlow(state, flow, uri) {
+      flows.set(flow, { state, uri });
+    },
+    async consumeLoginFlow(state, flow, uri) {
+      const r = flows.get(flow);
+      if (!r || r.state !== state || r.uri !== uri) return false;
+      flows.delete(flow);
       return true;
     },
   });
   return { users, tokens, restore: () => Object.assign(userStore, original) };
 }
-
 module.exports = { installFakeUserStore };

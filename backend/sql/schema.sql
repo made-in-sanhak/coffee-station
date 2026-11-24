@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS menu_prices (
 
 -- 회원·로그인 (카카오 로그인 후 서비스 JWT 발급)
 CREATE TABLE IF NOT EXISTS users (
+  active BOOLEAN NOT NULL DEFAULT TRUE,
 	`user_id`	BIGINT	NOT NULL AUTO_INCREMENT	COMMENT '회원ID',
 	`kakao_id`	VARCHAR(32)	NOT NULL	COMMENT '카카오회원번호',
 	`nickname`	VARCHAR(100)	NOT NULL	COMMENT '닉네임',
@@ -73,6 +74,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- refresh 토큰은 원문이 아니라 SHA-256 해시만 저장합니다.
 CREATE TABLE IF NOT EXISTS refresh_tokens (
+  session_id CHAR(36) NULL,
 	`token_id`	BIGINT	NOT NULL AUTO_INCREMENT	COMMENT '토큰ID',
 	`user_id`	BIGINT	NOT NULL	COMMENT '회원ID',
 	`token_hash`	CHAR(64)	NOT NULL	COMMENT '토큰해시(SHA-256 hex)',
@@ -81,6 +83,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 	`created_at`	DATETIME	NOT NULL	DEFAULT CURRENT_TIMESTAMP	COMMENT '발급일시',
   PRIMARY KEY (token_id),
   UNIQUE KEY uk_refresh_tokens_hash (token_hash),
+  KEY session_lookup(user_id,session_id,revoked_at,expires_at),
   KEY idx_refresh_tokens_user (user_id),
   CONSTRAINT fk_refresh_tokens_user FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;

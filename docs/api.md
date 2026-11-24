@@ -53,3 +53,14 @@
 Gemini 호출은 응답 본문 수신을 포함해 10초로 제한한다. 추천 이유 호출이 시간 초과되면 DB 검색 결과와 기본 문구를 그대로 반환한다. 자연어 추출이 시간 초과되면 504와 재시도·칩 검색 안내를 반환한다. 앱 요청 제한은 20초다.
 
 지원 조건은 0 이상 정수 예산, `DRIVE_THRU`, `DECAF`, `MILK`다. 조용함·콘센트·산미·고소함·단맛, 공부·대화, 실제 이동 시간은 아직 지원하지 않는다. 정상 빈 검색은 `items: []`; DB 오류는 503이다. 응답의 `matchedMenu`는 일치한 가격 옵션이고 `isDemo: true`, `checkedAt: null`이다. 가격순 상위 매장 3곳을 반환한다. Gemini 이유 선택은 설정이 `gemini`일 때만 시도하며, 검증 실패 시 DB 근거 문구로 돌아간다. 실제 MySQL·Gemini·기기 연결 성공 여부는 이 명세만으로 주장하지 않는다.
+
+## 통합 로그인 보안·세션 계약 (PR #47)
+
+1. `POST /auth/kakao/start {}` → `{authorizeUrl,redirectUri,state,flowToken}` (5분 일회용).
+2. `POST /auth/kakao {code,redirectUri,state,flowToken}` → 기존 `{accessToken,refreshToken,user}` 형식.
+3. `GET /api/users/me`는 users 회원·active·현재 세션을 검증하며 id/nickname/profileImageUrl/role을 반환한다.
+4. refresh는 같은 세션의 토큰을 한 번만 교체한다. 서명 실패 시 기존 토큰을 유지한다. 로그인부터 최대 14일이다.
+5. logout은 refresh뿐 아니라 해당 세션의 기존 access 요청도 차단한다. 반복 요청은 성공한다.
+
+코드·redirectUri만 보내던 이전 클라이언트는 state/flowToken 방식으로 업데이트해야 한다.
+이전 JWT/세션은 인증 DB 통합 이후 재로그인한다. 상세 DB 이전은 local-login-integration.md를 참조한다.

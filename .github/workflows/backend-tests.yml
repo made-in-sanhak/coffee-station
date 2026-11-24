@@ -41,3 +41,58 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
       - run: npm test
+
+  community-auth:
+    name: Community and auth (${{ matrix.mode }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [features, migration]
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: coffee_features_test_20261125
+          MYSQL_USER: community_test
+          MYSQL_PASSWORD: community-test-local
+          MYSQL_RANDOM_ROOT_PASSWORD: 'yes'
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      NODE_ENV: test
+      DB_HOST: 127.0.0.1
+      DB_PORT: '3306'
+      DB_NAME: coffee_features_test_20261125
+      DB_USER: community_test
+      DB_PASSWORD: community-test-local
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - name: Prepare isolated feature database
+        if: matrix.mode == 'features'
+        run: node tests/fixtures/setupCommunity.cjs
+      - name: HTTP and MySQL feature tests
+        if: matrix.mode == 'features'
+        env:
+          COMMUNITY_TEST_DB: '1'
+        run: node --test --test-concurrency=1 tests/communityHttp.cjs tests/serviceAuthHttp.cjs
+      - name: Legacy identity migration test
+        if: matrix.mode == 'migration'
+        env:
+          MIGRATION_TEST_DB: '1'
+        run: node --test tests/authMigration.cjs

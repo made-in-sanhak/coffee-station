@@ -31,6 +31,8 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
   const { authentication, ...requestOptions } = options;
   const privateRead = /^\/api\/(users\/me|coupons|purchases|owner|orders)(?:[/?]|$)/.test(path);
   const method = (options.method ?? 'GET').toUpperCase();
+  const localReceiptScan = __DEV__ && method === 'POST' && path === '/api/receipts/scan' &&
+    /^http:\/\/(?:127\.0\.0\.1|localhost|10\.0\.2\.2)(?::\d+)?$/.test(getApiBaseUrl());
   const developmentRecommendation = __DEV__ && method === 'POST' && [
     '/api/recommendations/search',
     '/api/recommendations/chat/prepare',
@@ -40,7 +42,7 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
     '/api/recommendations/mvp/confirm',
   ].includes(path);
   if (preview && path.startsWith('/api/') &&
-      (method !== 'GET' || privateRead) && !developmentRecommendation) {
+      (method !== 'GET' || privateRead) && !developmentRecommendation && !localReceiptScan) {
     throw new Error('화면 미리보기 상태입니다. 이 기능은 실제 서비스 로그인 후 이용할 수 있습니다.');
   }
   const token = preview || authentication === 'none' ? null : rawToken;

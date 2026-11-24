@@ -5,6 +5,7 @@ import healthRouter from './routes/health';
 import recommendationsRouter from './modules/recommendations/router';
 import reviewSummariesRouter from './modules/reviewSummaries/router';
 import cafesRouter from './modules/cafes/router';
+import receiptsRouter from './routes/receipts';
 import { errorHandler, notFound } from './middlewares/errorHandler';
 
 export const app = express();
@@ -14,6 +15,7 @@ export const app = express();
 app.set('trust proxy', 1);
 
 app.use(cors());
+app.use('/api/receipts', receiptsRouter);
 app.use(express.json({ limit: '1mb' }));
 
 app.use('/health', healthRouter);

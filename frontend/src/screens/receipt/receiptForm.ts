@@ -36,9 +36,10 @@ export function createManualDraft(now = new Date()): ReceiptForm {
 }
 
 export function receiptDraftToForm(draft: ReceiptDraft): ReceiptForm {
-  const base = createManualDraft(new Date(draft.purchasedAt));
+  const base = createManualDraft(draft.purchasedAt ? new Date(draft.purchasedAt) : undefined);
   return {
     ...base,
+    purchasedAt: draft.purchasedAt ? base.purchasedAt : '',
     storeName: draft.storeName,
     items: draft.items.length
       ? draft.items.map(item => ({

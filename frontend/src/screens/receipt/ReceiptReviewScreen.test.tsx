@@ -52,6 +52,13 @@ beforeEach(() => {
   useSessionStore.setState({ user: null, accessToken: null });
 });
 
+test('an OCR sample cannot be saved as a purchase', async () => {
+  const { tree } = await render({ ...draft, sample: true });
+  expect(control(tree, 'receipt-save')).toBeUndefined();
+  expect(control(tree, 'receipt-save-local')).toBeUndefined();
+  await act(() => tree.unmount());
+});
+
 test('anonymous save persists personal manual purchase without fabricated verification or caffeine', async () => {
   const { tree, replace } = await render();
   await act(async () => control(tree, 'receipt-save').props.onPress());

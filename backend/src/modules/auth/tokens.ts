@@ -12,11 +12,19 @@ export interface AccessClaims {
 }
 
 // JWT_SECRET 은 추천 확인 토큰에도 쓰이므로, 로그인용 키는 용도 문자열로 분리해 만듭니다.
-// 테스트에서는 실행할 때마다 임의 키를 씁니다.
-const rootSecret = env.jwtSecret || (env.nodeEnv === 'test' ? randomBytes(32).toString('hex') : '');
-const signingKey = rootSecret
-  ? createHmac('sha256', rootSecret).update('coffee-station/auth/access-token/v1').digest()
-  : null;
+// 테스트에서는 실행할 때마다 임의 키를 씁니다. 설정을 호출 시점에 읽어 설정 누락을 그때그때 판단합니다.
+const TEST_SECRET = randomBytes(32).toString('hex');
+function signingKey(): Buffer | null {
+  const rootSecret = env.jwtSecret || (env.nodeEnv === 'test' ? TEST_SECRET : '');
+  return rootSecret
+    ? createHmac('sha256', rootSecret).update('coffee-station/auth/access-token/v1').digest()
+    : null;
+}
+
+// 토큰을 발급·교체하기 전에 부릅니다. 서명할 수 없는 서버라면 DB 를 바꾸기 전에 멈춥니다.
+export function assertAccessTokenSigner(): void {
+  if (!signingKey()) throw new AppError(500, '로그인 설정(JWT_SECRET)이 없습니다.');
+}
 
 const base64url = (value: string | Buffer) => Buffer.from(value).toString('base64url');
 const HEADER = base64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
@@ -24,21 +32,23 @@ const sign = (key: Buffer, data: string) => createHmac('sha256', key).update(dat
 
 // 서비스 access 토큰 (표준 JWT, HS256)
 export function signAccessToken(claims: AccessClaims, now = Date.now()): string {
-  if (!signingKey) throw new AppError(500, '로그인 설정(JWT_SECRET)이 없습니다.');
+  const key = signingKey();
+  if (!key) throw new AppError(500, '로그인 설정(JWT_SECRET)이 없습니다.');
   const iat = Math.floor(now / 1000);
   const payload = base64url(JSON.stringify({
     sub: String(claims.userId), role: claims.role, typ: 'access', iat, exp: iat + ACCESS_TOKEN_TTL_SECONDS,
   }));
   const body = `${HEADER}.${payload}`;
-  return `${body}.${sign(signingKey, body).toString('base64url')}`;
+  return `${body}.${sign(key, body).toString('base64url')}`;
 }
 
 // 서명·형식·만료를 확인합니다. 어떤 이유로든 유효하지 않으면 null 입니다.
 export function verifyAccessToken(token: string, now = Date.now()): AccessClaims | null {
-  if (!signingKey) return null;
+  const key = signingKey();
+  if (!key) return null;
   const parts = token.split('.');
   if (parts.length !== 3 || parts[0] !== HEADER) return null;
-  const expected = sign(signingKey, `${parts[0]}.${parts[1]}`);
+  const expected = sign(key, `${parts[0]}.${parts[1]}`);
   const actual = Buffer.from(parts[2], 'base64url');
   if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
   let payload: { sub?: unknown; role?: unknown; typ?: unknown; exp?: unknown };

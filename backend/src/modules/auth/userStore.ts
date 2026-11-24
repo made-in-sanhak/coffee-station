@@ -60,6 +60,8 @@ async function saveRefreshToken(userId: number, hash: string, expiresAt: Date): 
 async function rotateRefreshToken(oldHash: string, next: { hash: string; expiresAt: Date }, now = new Date()): Promise<ServiceUser | null> {
   return db(async () => {
     const conn = await pool.getConnection();
+    // 롤백에 실패하면 트랜잭션 상태를 알 수 없으므로 그 연결은 풀에 돌려주지 않고 버립니다.
+    let unusable = false;
     try {
       await conn.beginTransaction();
       const [rows] = await conn.query<RowDataPacket[]>(
@@ -77,10 +79,15 @@ async function rotateRefreshToken(oldHash: string, next: { hash: string; expires
       await conn.commit();
       return users.length ? toUser(users[0]) : null;
     } catch (error) {
-      await conn.rollback().catch(() => undefined);
+      try {
+        await conn.rollback();
+      } catch {
+        unusable = true;
+      }
       throw error;
     } finally {
-      conn.release();
+      if (unusable) conn.destroy();
+      else conn.release();
     }
   });
 }

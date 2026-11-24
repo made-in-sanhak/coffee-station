@@ -30,7 +30,7 @@ test('reads the Korean receipt by position even when OCR fields arrive out of or
     word('샷 추가', 0, 100),
     word('1', 200, 100),
     word('0', 280, 100),
-    word('600', 360, 100),
+    word('600', 390, 100),
     word('부가세', 0, 120),
     word('237', 360, 120),
     word('합 계:', 0, 140),
@@ -53,6 +53,20 @@ test('reads the Korean receipt by position even when OCR fields arrive out of or
     scanned: true,
     verified: false,
   });
+});
+
+test('does not read a discount as the sale amount when the amount cell is missing', () => {
+  const fields = [
+    word('테스트 카페', 0, 0),
+    word('상품명', 0, 20),
+    word('수량', 200, 20),
+    word('할인', 280, 20),
+    word('금액', 360, 20),
+    word('아메리카노', 0, 40),
+    word('1', 200, 40),
+    word('500', 280, 40),
+  ];
+  expect(clovaReceiptDraft({ images: [{ fields }] }).items).toEqual([]);
 });
 
 test('keeps unreadable purchase fields blank while preserving the OCR total', () => {

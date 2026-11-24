@@ -35,6 +35,9 @@ export default function ReceiptReviewScreen({
   const hydrated = usePersonalStore(state => state.hydrated);
   const purchases = usePersonalStore(state => state.purchases);
   const [form, setForm] = useState(() => receiptDraftToForm(draft));
+  const [confirmedItems, setConfirmedItems] = useState<
+    ReceiptFormItem[] | null
+  >(null);
   const [editing, setEditing] = useState<'store' | 'date' | number | null>(
     null,
   );
@@ -49,6 +52,12 @@ export default function ReceiptReviewScreen({
     (sum, item) => sum + (Number(item.amount.replace(/,/g, '')) || 0),
     0,
   );
+  const totalMismatch =
+    !!(draft.scanned || draft.id || draft.sample) &&
+    draft.total > 0 &&
+    draft.total !== amount;
+  const needsAmountConfirmation =
+    totalMismatch && confirmedItems !== form.items;
   const caffeine = form.items.reduce(
     (sum, item) =>
       sum + (Number(item.caffeineMg) || 0) * (Number(item.quantity) || 0),
@@ -84,7 +93,7 @@ export default function ReceiptReviewScreen({
     setError(null);
   };
   const save = async (local: boolean) => {
-    if (draft.sample || busyRef.current) return;
+    if (draft.sample || busyRef.current || needsAmountConfirmation) return;
     const validation = validateReceiptForm(form);
     if (validation) {
       setError(validation);
@@ -235,11 +244,20 @@ export default function ReceiptReviewScreen({
             <Text style={[s.heading, s.font15]}>결제 금액</Text>
             <Text style={st.total}>{formatMoney(amount)}</Text>
           </View>
-          {(draft.scanned || draft.sample) && draft.total > 0 && draft.total !== amount && (
+          {totalMismatch && (
             <Text style={s.muted}>
-              OCR에서 읽은 영수증 합계 {formatMoney(draft.total)} · 메뉴 금액을
-              확인해 주세요.
+              영수증 합계는 {formatMoney(draft.total)}, 저장할 메뉴 금액은{' '}
+              {formatMoney(amount)}이에요. 빠진 메뉴나 할인이 있는지 확인해
+              주세요.
             </Text>
+          )}
+          {!draft.sample && needsAmountConfirmation && (
+            <Button
+              testID="receipt-confirm-total"
+              label="금액 차이 확인했어요"
+              variant="outline"
+              onPress={() => setConfirmedItems(form.items)}
+            />
           )}
         </View>
         <View style={s.linkRow}>
@@ -292,7 +310,7 @@ export default function ReceiptReviewScreen({
                   ? '기록 저장하기'
                   : '기기에 기록 저장하기'
               }
-              disabled={saving || !hydrated}
+              disabled={saving || !hydrated || needsAmountConfirmation}
               loading={saving}
               onPress={() => save(!user)}
             />
@@ -301,7 +319,7 @@ export default function ReceiptReviewScreen({
                 testID="receipt-save-local"
                 label="기기에 수동 기록으로 저장"
                 variant="outline"
-                disabled={saving}
+                disabled={saving || needsAmountConfirmation}
                 onPress={() => save(true)}
               />
             )}

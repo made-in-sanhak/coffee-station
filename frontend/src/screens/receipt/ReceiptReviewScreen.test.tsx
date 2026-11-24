@@ -59,6 +59,37 @@ test('an OCR sample cannot be saved as a purchase', async () => {
   await act(() => tree.unmount());
 });
 
+test('saving an OCR total mismatch requires confirmation again after an item changes', async () => {
+  const { tree, replace } = await render({
+    ...draft,
+    scanned: true,
+    total: 3000,
+  });
+  const save = () => control(tree, 'receipt-save');
+  const confirm = () => control(tree, 'receipt-confirm-total');
+
+  expect(save().props.disabled).toBe(true);
+  await act(async () => save().props.onPress());
+  expect(usePersonalStore.getState().purchases).toEqual([]);
+
+  await act(() => confirm().props.onPress());
+  expect(save().props.disabled).toBe(false);
+  await act(() => control(tree, 'receipt-edit-item-0').props.onPress());
+  await act(() =>
+    control(tree, 'receipt-menu-field').props.onChangeText('아이스 아메리카노'),
+  );
+  await act(() => control(tree, 'receipt-editor-done').props.onPress());
+  expect(save().props.disabled).toBe(true);
+
+  await act(() => confirm().props.onPress());
+  await act(async () => save().props.onPress());
+  expect(usePersonalStore.getState().purchases).toEqual([
+    expect.objectContaining({ menuName: '아이스 아메리카노', total: 2000 }),
+  ]);
+  expect(replace).toHaveBeenCalledWith('Calendar');
+  await act(() => tree.unmount());
+});
+
 test('anonymous save persists personal manual purchase without fabricated verification or caffeine', async () => {
   const { tree, replace } = await render();
   await act(async () => control(tree, 'receipt-save').props.onPress());

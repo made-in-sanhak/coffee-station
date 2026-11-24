@@ -4,6 +4,7 @@ type Word = {
   text: string;
   lineBreak: boolean;
   x: number;
+  right: number;
   y: number;
   height: number;
 };
@@ -43,6 +44,7 @@ function readWords(value: unknown): Word[] {
         text: field.inferText.trim(),
         lineBreak: field.lineBreak === true,
         x: valid ? Math.min(...xs) : NaN,
+        right: valid ? Math.max(...xs) : NaN,
         y: valid ? (Math.min(...ys) + Math.max(...ys)) / 2 : NaN,
         height: valid ? Math.max(...ys) - Math.min(...ys) : 0,
       },
@@ -88,12 +90,28 @@ function readItems(rows: Word[][], lines: string[]): ReceiptItem[] {
       /금액/.test(line),
   );
   if (header < 0) return [];
-  const quantityHeader = rows[header].find(word => word.text === '수량');
-  const amountHeader = [...rows[header]]
-    .reverse()
-    .find(word => /금액/.test(word.text));
-  if (!quantityHeader || !amountHeader || !Number.isFinite(quantityHeader.x))
+  const headings = rows[header];
+  const quantityColumn = headings.findIndex(word => word.text === '수량');
+  const amountColumn = headings
+    .map(word => /금액/.test(word.text))
+    .lastIndexOf(true);
+  if (
+    quantityColumn < 1 ||
+    amountColumn < 1 ||
+    !headings.every(word => Number.isFinite(word.x))
+  )
     return [];
+  // Split the space between adjacent labels. The last column extends to the receipt edge.
+  const boundaries = headings
+    .slice(1)
+    .map((word, i) => (headings[i].right + word.x) / 2);
+  const inColumn = (word: Word, index: number) => {
+    const center = (word.x + word.right) / 2;
+    return (
+      center >= boundaries[index - 1] &&
+      center < (boundaries[index] ?? Infinity)
+    );
+  };
   const items: ReceiptItem[] = [];
   for (let i = header + 1; i < rows.length; i++) {
     if (
@@ -103,20 +121,11 @@ function readItems(rows: Word[][], lines: string[]): ReceiptItem[] {
       break;
     const row = rows[i];
     const numbers = row.filter(word => won(word.text) !== undefined);
-    const quantityWord = [...numbers].sort(
-      (a, b) =>
-        Math.abs(a.x - quantityHeader.x) - Math.abs(b.x - quantityHeader.x),
-    )[0];
-    const amountWord = numbers[numbers.length - 1];
-    if (
-      !quantityWord ||
-      quantityWord === amountWord ||
-      Math.abs(quantityWord.x - quantityHeader.x) > quantityHeader.height * 2 ||
-      Math.abs(amountWord.x - amountHeader.x) > amountHeader.height * 2
-    )
-      continue;
-    const quantity = won(quantityWord.text) ?? 0;
-    const amount = won(amountWord.text) ?? 0;
+    const quantities = numbers.filter(word => inColumn(word, quantityColumn));
+    const amounts = numbers.filter(word => inColumn(word, amountColumn));
+    if (quantities.length !== 1 || amounts.length !== 1) continue;
+    const quantity = won(quantities[0].text) ?? 0;
+    const amount = won(amounts[0].text) ?? 0;
     const menuName = row
       .slice(0, row.indexOf(numbers[0]))
       .map(word => word.text)

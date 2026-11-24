@@ -2,7 +2,7 @@
 
 2026-11-25 원격 develop `ab10386b9be794802c402677e7b42d1e4ab6d983`을 로컬
 `codex/local-login-integration`에 병합했다. 기존 기능 보존 커밋은 `bff5d0e`,
-로그인 작업 보존 커밋은 `672dcb6`이다. 원격 push/PR/merge는 하지 않았다.
+로그인 작업 보존 커밋은 `672dcb6`, 로컬 통합 커밋은 `fb701c3`이다.
 
 기존 메뉴 가격 시드, 리뷰·댓글·좋아요·가격 비교·가격 제보 API, 서비스 로그인 백엔드를 유지한다.
 최신 develop의 메뉴 카테고리, 구매 캘린더, 점주 초대·메뉴판 화면, 추천 quota 변경을 반영했다.
@@ -112,3 +112,26 @@ npm.cmd run android -- --no-packager
 - 기존 haengsin.sql 및 리뷰 시드에 변경이 없고 로그인·리뷰·가격 기능 코드가 보존됐음을 확인했다.
 - 실제 Android 빌드·에뮬레이터 화면은 이번 병합 검증에 포함하지 않았다.
 - .env는 계속 ignored/untracked이며 로컬 커밋에 포함하지 않는다.
+
+## Docker 재실행 후 API 확인
+
+- coffee-mysql-haengsin 및 개발 백엔드를 실행해 /health의 server/db가 모두 ok임을 확인했다.
+- Postman 직접 확인: /api/cafes/9001/menus, /api/menus/compare, /api/reviews?cafeId=9001 모두 200.
+- 실제 앱 DB를 대상으로 한 직접 HTTP 검사 23개 통과: 매장 21곳, 투썸 메뉴 옵션 118개,
+  투썸 리뷰 5개, 가격 비교 16곳, 추천 상위 3곳, 자연어 mock 준비/확인,
+  로그인 시작, 인증 없는 쓰기 차단, 입력 오류와 없는 매장 응답을 확인했다.
+- coffee_features_test_2026112401 별도 DB에서 순차 실행한 HTTP/MySQL 테스트 19개 통과.
+  리뷰·사진·좋아요·댓글·가격 제보·이용 기록, 로그인 흐름·갱신·로그아웃을 확인했다.
+  같은 DB를 공유하는 두 파일의 병렬 실행은 리뷰 수 검증에 간섭하므로 --test-concurrency=1을 사용한다.
+- 카카오 외부 응답은 테스트 대역이며 실제 계정 로그인 완료나 에뮬레이터 실행 검증은 아니다.
+- /api/owner/me, /api/coupons, /api/purchases, /api/meetups는 백엔드 미구현으로 404다.
+
+## PR 병합 전 팀 로그인과 통합 필요
+
+PR 등록 직전 develop을 다시 확인하니 #39가 병합되어 `0bc2365`가 되었다.
+위 검증 대상은 `ab10386`을 병합한 로컬 기능 브랜치이며 #39까지 통합한 결과가 아니다.
+#39와 이 브랜치는 auth/router.ts, auth/tokens.ts, app.ts를 각각 구현했고,
+auth_users/auth_sessions 등 회원·세션 DB 계약도 다르다. 두 구현을 나란히 적용하지 않는다.
+팀 회원 저장소·JWT·/api/users/me를 기준으로 커뮤니티 작성자 및 세션 검증을 연결하고,
+state/일회용 로그인 흐름을 유지하는 방식으로 충돌·DB 마이그레이션을 해결한 뒤 재검증해야 한다.
+이 작업과 실제 카카오 계정 로그인이 완료되기 전에는 Draft PR을 유지한다.

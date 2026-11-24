@@ -1,6 +1,7 @@
 # 가격 비교·매장 제보·리뷰 API (로컬 작업)
 
-최신 develop 통합과 로그인 연결을 포함한 로컬 작업이다. 원격 push/PR은 없다.
+develop `ab10386` 통합과 로컬 로그인 연결을 포함한 기능 작업이다.
+PR 등록 시 확인한 develop `0bc2365`의 팀 로그인(#39)과 인증·회원 저장 구조를 통합해야 한다.
 이벤트·할인·점주 승인 API는 제외하며 로그인 구현은 local-login-integration.md를 참조한다.
 
 ## DB 적용
@@ -58,6 +59,16 @@ OPEN으로 저장한다. 제보만으로 판매가격을 변경하지 않는다.
 backend에서 npm.cmd test. 기본 실행은 외부 DB 없이 수행한다.
 communityHttp.cjs의 실제 HTTP/MySQL 검증은 COMMUNITY_TEST_DB=1 및
 DB_NAME=coffee_features_test_숫자 때만 실행한다. 기존 앱 DB는 테스트 대상으로 거부한다.
-별도 DB에 schema.sql, 002, tests/fixtures/community.sql을 순서대로 적용한다.
+이 브랜치의 별도 DB에 schema.sql, 002_community_features.sql,
+tests/fixtures/community.sql, 004_service_auth.sql을 순서대로 적용한다.
+팀 로그인의 002_auth_users.sql은 users/refresh_tokens를, 로컬 004_service_auth.sql은
+auth_users/auth_sessions를 사용한다. 별도 회원 ID를 각각 발급하므로 테이블만 함께
+적용해도 회원·세션이 자동 연결되지는 않는다. 통합 전 두 시스템을 혼용하지 않는다.
 통합 테스트는 명시적으로 선택한 테스트 DB의 기능 데이터를 초기화한다. 운영/앱 DB에는 실행하지 않는다.
+두 HTTP 테스트 파일은 같은 테스트 DB를 초기화하고 리뷰 수를 검증하므로 순차 실행한다.
+
+```powershell
+# 별도 테스트 DB 연결값과 COMMUNITY_TEST_DB=1을 설정한 backend 터미널에서 실행
+node --test --test-concurrency=1 tests/communityHttp.cjs tests/serviceAuthHttp.cjs
+```
 에뮬레이터 UI는 정상 로그인 연결 후 비교·가격 제보·휴게소 리뷰/댓글/좋아요로 별도 검증한다.

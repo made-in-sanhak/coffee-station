@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Check } from 'lucide-react-native';
 import { applyMenuDiff } from '../../../api/endpoints/menuBoard';
 import { Button, Screen, formatMoney, tokens } from '../../../app/ui';
@@ -8,7 +8,14 @@ import { useMenuBoardStore } from '../../../store/menuBoardStore';
 import type { MenuDiffItem } from '../../../types/menuBoard';
 import { ownerOnboardingStyles as o } from '../invite/ownerOnboardingStyles';
 import { MenuToggle, NoticeBox } from './MenuBoardParts';
-import { categoryLabel, defaultDiffEnabled, diffSummary } from './menuBoardLogic';
+import {
+  categoryLabel,
+  defaultDiffEnabled,
+  diffSummary,
+  newOptionConflict,
+  temperatureLabel,
+  UNKNOWN_TEMPERATURE_MESSAGE,
+} from './menuBoardLogic';
 
 const BADGE: Record<MenuDiffItem['kind'], { label: string; box: object; text: object }> = {
   PRICE_CHANGED: { label: '가격 변경', box: o.brownBadge, text: o.brownBadgeText },
@@ -16,10 +23,13 @@ const BADGE: Record<MenuDiffItem['kind'], { label: string; box: object; text: ob
   MISSING: { label: '메뉴판에 없음', box: { backgroundColor: tokens.card }, text: { color: tokens.muted } },
 };
 
+// 메뉴명·사이즈·온도가 한 옵션이라 줄마다 사이즈와 온도를 함께 보여 줍니다.
+const option = (item: MenuDiffItem) => `${item.size ?? 'Regular'} · ${temperatureLabel(item.temperature)}`;
 const detail = (item: MenuDiffItem) => {
-  if (item.kind === 'PRICE_CHANGED') return `${formatMoney(item.previousPrice)} → ${formatMoney(item.price)}`;
-  if (item.kind === 'NEW') return `${categoryLabel(item.category)} · ${item.size ?? 'Regular'} · 새로 등록`;
-  return '반영하면 판매 중지로 바뀌어요';
+  if (item.kind === 'PRICE_CHANGED')
+    return `${option(item)} · ${formatMoney(item.previousPrice)} → ${formatMoney(item.price)}`;
+  if (item.kind === 'NEW') return `${categoryLabel(item.category)} · ${option(item)} · 새로 등록`;
+  return `${option(item)} · 반영하면 판매 중지로 바뀌어요`;
 };
 
 // 14-8 메뉴판 변경 사항 확인: 등록된 메뉴와 다른 것만 보여 주고, 켠 항목만 반영합니다.
@@ -28,11 +38,26 @@ export default function MenuBoardDiffScreen({
 }: RootStackScreenProps<'MenuBoardDiff'>) {
   const cafe = useMenuBoardStore(state => state.cafe);
   const diff = useMenuBoardStore(state => state.diff);
-  const changes = diff?.changes ?? [];
   const unchanged = diff?.unchanged ?? [];
-  const [enabled, setEnabled] = useState<boolean[]>(() => changes.map(defaultDiffEnabled));
+  // 새 메뉴의 온도를 점주가 고를 수 있어 변경 목록을 화면 상태로 들고 있습니다.
+  const [changes, setChanges] = useState<MenuDiffItem[]>(() => diff?.changes ?? []);
+  const [enabled, setEnabled] = useState<boolean[]>(() => (diff?.changes ?? []).map(defaultDiffEnabled));
+  const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const chooseTemperature = (index: number, temperature: 'HOT' | 'ICE') => {
+    const current = changes[index];
+    const conflict = diff ? newOptionConflict({ ...current, temperature }, diff, diff.changes[index]) : null;
+    setRowErrors(previous => {
+      const next = { ...previous };
+      if (conflict) next[index] = conflict;
+      else delete next[index];
+      return next;
+    });
+    if (conflict) return;
+    setChanges(previous => previous.map((item, i) => (i === index ? { ...item, temperature } : item)));
+    setEnabled(previous => previous.map((value, i) => (i === index ? true : value)));
+  };
   const summary = diffSummary(changes);
   const selected = changes.filter((_, index) => enabled[index]);
 
@@ -114,6 +139,32 @@ export default function MenuBoardDiffScreen({
                     }
                   />
                 </View>
+                {item.kind === 'NEW' && item.temperature === null && (
+                  <View style={styles.tempHint} testID={`menu-diff-temp-hint-${index}`}>
+                    <Text style={styles.tempHintText}>
+                      {UNKNOWN_TEMPERATURE_MESSAGE} 모르면 꺼 두거나 미확인으로 등록돼요.
+                    </Text>
+                    <View style={styles.tempChoices}>
+                      {(['HOT', 'ICE'] as const).map(value => (
+                        <Pressable
+                          key={value}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${item.name} ${value}로 선택`}
+                          testID={`menu-diff-temp-${index}-${value}`}
+                          onPress={() => chooseTemperature(index, value)}
+                          style={({ pressed }) => [styles.tempButton, pressed && o.pressed]}
+                        >
+                          <Text style={styles.tempButtonText}>{value}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+                )}
+                {rowErrors[index] && (
+                  <Text accessibilityRole="alert" testID={`menu-diff-row-error-${index}`} style={o.error}>
+                    {rowErrors[index]}
+                  </Text>
+                )}
               </React.Fragment>
             );
           })}
@@ -124,7 +175,11 @@ export default function MenuBoardDiffScreen({
           <Check size={20} color={tokens.brown} strokeWidth={2} />
           <View style={styles.text}>
             <Text style={[o.body, o.bold]}>그대로인 메뉴 {unchanged.length}개는 바뀌지 않아요</Text>
-            <Text style={o.muted}>{unchanged.map(item => item.name).join(' · ')}</Text>
+            <Text style={o.muted}>
+              {unchanged
+                .map(item => (item.temperature ? `${item.name} ${item.temperature}` : item.name))
+                .join(' · ')}
+            </Text>
           </View>
         </View>
       )}
@@ -168,5 +223,24 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.white,
   },
   changedPrice: { backgroundColor: tokens.card },
+  tempHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: tokens.card,
+  },
+  tempHintText: { flex: 1, fontFamily: tokens.font, fontSize: 12, lineHeight: 17, color: tokens.brown },
+  tempChoices: { flexDirection: 'row', gap: 6 },
+  tempButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: tokens.border,
+    backgroundColor: tokens.white,
+  },
+  tempButtonText: { fontFamily: tokens.font, fontSize: 13, lineHeight: 18, fontWeight: '700', color: tokens.green },
   price: { fontFamily: tokens.font, fontSize: 14, lineHeight: 20, fontWeight: '700', color: tokens.green },
 });

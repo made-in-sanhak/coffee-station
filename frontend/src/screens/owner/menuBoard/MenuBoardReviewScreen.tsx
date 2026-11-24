@@ -24,10 +24,13 @@ import {
   countByCategory,
   digitsOnly,
   MENU_BOARD_CATEGORIES,
+  MENU_TEMPERATURES,
   needsCheck,
   reviewSummary,
+  temperatureLabel,
   toBulkItems,
   toReviewItems,
+  UNKNOWN_TEMPERATURE_MESSAGE,
   validateReviewItems,
   type ReviewItem,
 } from './menuBoardLogic';
@@ -112,6 +115,11 @@ export default function MenuBoardReviewScreen({
               <Text style={[o.badgeText, styles.redText]}>확인 필요 {summary.needsCheck}개</Text>
             </View>
           )}
+          {summary.unknownTemperature > 0 && (
+            <View style={[o.badge, o.brownBadge]}>
+              <Text style={[o.badgeText, o.brownBadgeText]}>온도 미확인 {summary.unknownTemperature}개</Text>
+            </View>
+          )}
         </View>
         <Pressable
           accessibilityRole="button"
@@ -149,7 +157,8 @@ export default function MenuBoardReviewScreen({
                       )}
                     </View>
                     <Text style={styles.meta}>
-                      {categoryLabel(item.category)} · {warn && item.note ? item.note : item.size}
+                      {categoryLabel(item.category)} ·{' '}
+                      {warn && item.note ? item.note : `${item.size} · ${temperatureLabel(item.temperature)}`}
                     </Text>
                   </Pressable>
                   <View style={[styles.priceBox, warn && styles.priceBoxWarn]}>
@@ -172,6 +181,25 @@ export default function MenuBoardReviewScreen({
                     onChange={include => patch(item.key, { include })}
                   />
                 </View>
+                {item.temperature === null && (
+                  <View style={styles.tempHint} testID={`menu-review-temp-hint-${index}`}>
+                    <Text style={styles.tempHintText}>{UNKNOWN_TEMPERATURE_MESSAGE}</Text>
+                    <View style={styles.tempChoices}>
+                      {(['HOT', 'ICE'] as const).map(value => (
+                        <Pressable
+                          key={value}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${item.name} ${value}로 선택`}
+                          testID={`menu-review-temp-${index}-${value}`}
+                          onPress={() => patch(item.key, { temperature: value })}
+                          style={({ pressed }) => [styles.smallButton, styles.outlineButton, pressed && o.pressed]}
+                        >
+                          <Text style={styles.smallButtonText}>{value}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+                )}
               </React.Fragment>
             );
           })}
@@ -231,6 +259,21 @@ export default function MenuBoardReviewScreen({
                     value={editing.size}
                     onChangeText={size => setEditing({ ...editing, size })}
                   />
+                  <Text style={[o.body, o.bold]}>온도</Text>
+                  <View style={styles.chips}>
+                    {MENU_TEMPERATURES.map(option => (
+                      <Chip
+                        key={option.label}
+                        testID={`menu-editor-temperature-${option.code ?? 'UNKNOWN'}`}
+                        label={option.label}
+                        selected={editing.temperature === option.code}
+                        onPress={() => setEditing({ ...editing, temperature: option.code })}
+                      />
+                    ))}
+                  </View>
+                  {editing.temperature === null && (
+                    <Text style={styles.tempHintText}>{UNKNOWN_TEMPERATURE_MESSAGE} 모르면 미확인으로 두세요.</Text>
+                  )}
                   <Text style={[o.body, o.bold]}>카테고리</Text>
                   <View style={styles.chips}>
                     {MENU_BOARD_CATEGORIES.map(category => (
@@ -325,4 +368,20 @@ const styles = StyleSheet.create({
   },
   editorContent: { gap: 14, padding: 20 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tempHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: tokens.card,
+  },
+  tempHintText: {
+    flex: 1,
+    fontFamily: tokens.font,
+    fontSize: 12,
+    lineHeight: 17,
+    color: tokens.brown,
+  },
+  tempChoices: { flexDirection: 'row', gap: 6 },
 });

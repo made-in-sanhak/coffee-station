@@ -1,7 +1,6 @@
 import storesRouter from './routes/stores';
 import reviewsRouter, { reviewImagesRouter } from './routes/reviews';
 import { comparisonRouter, cafeFeaturesRouter } from './modules/community/cafes';
-import localCafesRouter from './routes/cafes';
 import express from 'express';
 import cors from 'cors';
 import healthRouter from './routes/health';
@@ -29,10 +28,9 @@ app.use('/api/cafes', cafeFeaturesRouter);
 app.use('/api/recommendations', recommendationsRouter);
 app.use('/api/cafes', reviewSummariesRouter);
 app.use('/api/cafes', cafesRouter);
-// 기능 라우터는 여기에 추가합니다. 예)
-// app.use('/api/cafes', cafeRouter);
 app.use('/stores', storesRouter);
-app.use('/api/cafes', localCafesRouter);
+// 기능 라우터는 여기에 추가합니다. 이미 쓰는 접두사에 라우터를 하나 더 붙이지 마세요. 예)
+// app.use('/api/기능명', 기능Router);
 
 // 아래 두 줄은 항상 맨 마지막에 둡니다.
 app.use(notFound);

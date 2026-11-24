@@ -4,6 +4,7 @@ import {env} from '../../config/env';
 import {AppError} from '../../common/AppError';
 import {ok} from '../../common/response';
 import {distanceMeters} from '../recommendations/repository';
+import {getCafe,getCafeMenus,listCafes} from './directory';
 
 type Select = (sql:string,params:(string|number)[])=>Promise<Record<string,unknown>[]>;
 const select:Select = async(sql,params)=>{
@@ -60,6 +61,8 @@ export async function nearby(q:Record<string,unknown>,query:Select=select) {
   }
   return [...cafes.values()].sort((a,b)=>(q.sort==='distance'?a.distance-b.distance:a.minPrice-b.minPrice)||a.id.localeCompare(b.id));
 }
+// /api/cafes 의 매장 API는 이 라우터 한 곳에서만 정의합니다. (리뷰 요약만 reviewSummaries/router.ts)
+// '/options' 는 '/:id' 보다 먼저 정의해야 'options' 가 매장 ID로 잡히지 않습니다.
 const router=Router();
 router.get('/options',async(_req,res)=>{
   if(env.nodeEnv==='production'||env.catalogMode!=='mysql-seed') throw new AppError(503,'개발용 DB 지도 조회를 활성화하세요.');
@@ -70,9 +73,11 @@ router.get('/options',async(_req,res)=>{
     res.json(ok(rows.map(row=>String(row.size))));
   } catch {throw new AppError(503,'매장 사이즈 정보를 조회할 수 없습니다.');}
 });
-router.get('/',async(req,res,next)=>{
-  if (req.query.query !== undefined || (req.query.latitude === undefined && req.query.longitude === undefined)) { next(); return; }
+router.get('/',async(req,res)=>{
+  if(req.query.menu===undefined){res.json(ok(await listCafes(req.query)));return;}
   if(env.nodeEnv==='production'||env.catalogMode!=='mysql-seed') throw new AppError(503,'개발용 DB 지도 조회를 활성화하세요.');
   res.json(ok(await nearby(req.query)));
 });
+router.get('/:id/menus',async(req,res)=>{res.json(ok(await getCafeMenus(req.params.id)));});
+router.get('/:id',async(req,res)=>{res.json(ok(await getCafe(req.params.id)));});
 export default router;

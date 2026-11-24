@@ -7,10 +7,12 @@ import {
   blankReviewItem,
   countByCategory,
   defaultDiffEnabled,
+  diffItemMissing,
   diffMenuOptions,
+  diffOptionConflict,
   diffSummary,
   needsCheck,
-  newOptionConflict,
+  validateDiffSelection,
   OCR_CONFIDENCE_THRESHOLD,
   reviewSummary,
   toBulkItems,
@@ -130,8 +132,9 @@ test('a menu whose temperature could not be read never overwrites or retires the
   expect(defaultDiffEnabled(diff.changes[0])).toBe(false);
   expect(diff.unchanged.map(option => option.menuId)).toEqual(['h', 'i']);
   // 점주가 이미 있는 옵션의 온도를 고르면 새 옵션으로 만들지 않고 막습니다.
-  expect(newOptionConflict({ ...diff.changes[0], temperature: 'ICE' }, diff, diff.changes[0])).toContain('이미 등록된 옵션');
-  expect(newOptionConflict({ ...diff.changes[0], name: '바닐라라떼', temperature: 'ICE' }, diff, diff.changes[0])).toBeNull();
+  const picked = [{ ...diff.changes[0], temperature: 'ICE' as const }];
+  expect(diffOptionConflict(0, picked, [true], diff.unchanged)).toContain('이미 등록된 옵션');
+  expect(diffOptionConflict(0, [{ ...picked[0], name: '바닐라라떼' }], [true], diff.unchanged)).toBeNull();
 });
 
 test('the same menu, size and temperature cannot be registered twice but HOT and ICE can', () => {
@@ -404,5 +407,87 @@ test('diff keeps an unreadable new menu off, blocks a temperature that already e
   await act(() => find(tree, 'menu-diff-temp-0-ICE').props.onPress());
   expect(texts(tree).some(text => text.includes('이미 등록된 옵션'))).toBe(true);
   expect(find(tree, 'menu-diff-toggle-0').props.accessibilityState).toEqual({ checked: false });
+  await act(() => tree.unmount());
+});
+
+const newMenu = (temperature: 'HOT' | 'ICE' | null, price: number | null, category: 'COFFEE' | null = 'COFFEE') => ({
+  kind: 'NEW' as const, menuId: null, name: '바닐라라떼', category, size: 'Regular', temperature, previousPrice: null, price,
+});
+
+test('two new menus that become the same option are caught against the latest selection and before applying', () => {
+  // 리뷰 사례: 바닐라라떼 Regular ICE 3,400원 + 바닐라라떼 Regular 미확인 3,500원 → 두 번째를 ICE 로 고름
+  const changes = [newMenu('ICE', 3400), newMenu('ICE', 3500)];
+  expect(diffOptionConflict(1, changes, [true, true], [])).toContain('두 번 선택됐어요');
+  // 첫 번째를 꺼 두면 겹치지 않습니다.
+  expect(diffOptionConflict(1, changes, [false, true], [])).toBeNull();
+  expect(validateDiffSelection(changes, [true, true], [])).toContain('두 번 선택됐어요');
+  expect(validateDiffSelection(changes, [true, false], [])).toBeNull();
+  // HOT 과 ICE 는 다른 옵션입니다.
+  expect(validateDiffSelection([newMenu('ICE', 3400), newMenu('HOT', 3500)], [true, true], [])).toBeNull();
+});
+
+test('a new menu without a price or category is never selected by default and cannot be applied', () => {
+  // 리뷰 사례: { kind: NEW, name: 바닐라라떼, category: null, temperature: HOT, price: null }
+  const incomplete = newMenu('HOT', null, null);
+  expect(defaultDiffEnabled(incomplete)).toBe(false);
+  expect(diffItemMissing(incomplete)).toBe('바닐라라떼의 분류를 골라 주세요.');
+  expect(diffItemMissing({ ...incomplete, category: 'COFFEE' })).toBe('바닐라라떼의 가격을 입력해 주세요.');
+  expect(validateDiffSelection([incomplete], [true], [])).toBe('바닐라라떼의 분류를 골라 주세요.');
+  expect(defaultDiffEnabled(newMenu('HOT', 3400))).toBe(true);
+});
+
+test('choosing a temperature that duplicates another switched-on new menu is blocked on the screen', async () => {
+  useMenuBoardStore.getState().start('update', cafe);
+  useMenuBoardStore.getState().setDiff({ changes: [newMenu('ICE', 3400), newMenu(null, 3500)], unchanged: [] });
+  mockApi.applyMenuDiff.mockResolvedValue({ applied: 1 });
+  const navigation = nav();
+  let tree!: Renderer.ReactTestRenderer;
+  await act(() => {
+    tree = Renderer.create(<MenuBoardDiffScreen {...({ navigation, route: route('MenuBoardDiff') } as any)} />);
+  });
+  expect(find(tree, 'menu-diff-toggle-0').props.accessibilityState).toEqual({ checked: true });
+  await act(() => find(tree, 'menu-diff-temp-1-ICE').props.onPress());
+  expect(texts(tree).some(text => text.includes('두 번 선택됐어요'))).toBe(true);
+  expect(find(tree, 'menu-diff-toggle-1').props.accessibilityState).toEqual({ checked: false });
+  // 첫 번째를 끄면 두 번째를 ICE 로 켤 수 있고, 반영에는 하나만 갑니다.
+  await act(() => find(tree, 'menu-diff-toggle-0').props.onPress());
+  await act(() => find(tree, 'menu-diff-temp-1-ICE').props.onPress());
+  expect(find(tree, 'menu-diff-toggle-1').props.accessibilityState).toEqual({ checked: true });
+  await act(async () => {
+    await find(tree, 'menu-diff-apply').props.onPress();
+  });
+  expect(mockApi.applyMenuDiff.mock.calls[0][1].changes).toEqual([
+    expect.objectContaining({ name: '바닐라라떼', temperature: 'ICE', price: 3500 }),
+  ]);
+  await act(() => tree.unmount());
+});
+
+test('a new menu missing price and category starts off, explains why and can be filled in before applying', async () => {
+  useMenuBoardStore.getState().start('update', cafe);
+  useMenuBoardStore.getState().setDiff({ changes: [newMenu('HOT', null, null)], unchanged: [] });
+  mockApi.applyMenuDiff.mockResolvedValue({ applied: 1 });
+  const navigation = nav();
+  let tree!: Renderer.ReactTestRenderer;
+  await act(() => {
+    tree = Renderer.create(<MenuBoardDiffScreen {...({ navigation, route: route('MenuBoardDiff') } as any)} />);
+  });
+  expect(find(tree, 'menu-diff-toggle-0').props.accessibilityState).toEqual({ checked: false });
+  expect(texts(tree)).toContain('가격·분류를 입력해야 반영할 수 있어요.');
+  await act(() => find(tree, 'menu-diff-toggle-0').props.onPress());
+  expect(find(tree, 'menu-diff-toggle-0').props.accessibilityState).toEqual({ checked: false });
+  expect(texts(tree)).toContain('바닐라라떼의 분류를 골라 주세요.');
+  await act(() => find(tree, 'menu-diff-fix-0').props.onPress());
+  await act(() => find(tree, 'menu-diff-editor-price', 'onChangeText').props.onChangeText('3,600'));
+  await act(() => find(tree, 'menu-diff-editor-category-COFFEE').props.onPress());
+  await act(() => find(tree, 'menu-diff-editor-done').props.onPress());
+  expect(texts(tree)).not.toContain('가격·분류를 입력해야 반영할 수 있어요.');
+  await act(() => find(tree, 'menu-diff-toggle-0').props.onPress());
+  expect(find(tree, 'menu-diff-toggle-0').props.accessibilityState).toEqual({ checked: true });
+  await act(async () => {
+    await find(tree, 'menu-diff-apply').props.onPress();
+  });
+  expect(mockApi.applyMenuDiff.mock.calls[0][1].changes).toEqual([
+    expect.objectContaining({ kind: 'NEW', name: '바닐라라떼', category: 'COFFEE', temperature: 'HOT', price: 3600 }),
+  ]);
   await act(() => tree.unmount());
 });

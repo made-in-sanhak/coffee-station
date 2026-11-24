@@ -241,22 +241,61 @@ export function diffMenuOptions(
   return { changes, unchanged };
 }
 
-// 변경 사항 확인: 가격 변경·새 메뉴는 기본으로 켜고, "메뉴판에 없음"과 온도를 모르는 새 메뉴는 기본으로 끕니다.
-export const defaultDiffEnabled = (item: Pick<MenuDiffItem, 'kind' | 'temperature'>) =>
-  item.kind === 'PRICE_CHANGED' || (item.kind === 'NEW' && item.temperature !== null);
+const validPrice = (price: number | null) =>
+  typeof price === 'number' && Number.isSafeInteger(price) && price > 0 && price <= 1_000_000;
 
-// 새 메뉴의 온도를 골랐을 때, 이미 등록된 옵션(그대로인 메뉴·다른 변경)과 겹치면 안내 문구를 돌려줍니다.
-export function newOptionConflict(
-  item: Pick<MenuDiffItem, 'name' | 'size' | 'temperature'>,
-  diff: MenuDiffResult,
-  self: MenuDiffItem,
+// 반영하는 데 필요한 정보가 빠졌으면 안내 문구를 돌려줍니다. (새 메뉴: 분류·가격, 가격 변경: 가격)
+export function diffItemMissing(item: Pick<MenuDiffItem, 'kind' | 'name' | 'category' | 'price'>): string | null {
+  if (item.kind === 'MISSING') return null;
+  if (item.kind === 'NEW' && !item.category) return `${item.name}의 분류를 골라 주세요.`;
+  if (!validPrice(item.price)) return `${item.name}의 가격을 입력해 주세요.`;
+  return null;
+}
+
+// 변경 사항 확인: 기본으로 켜는 것은 필요한 정보가 다 있는 가격 변경과, 온도·분류·가격이 다 있는 새 메뉴뿐입니다.
+// "메뉴판에 없음", 온도를 모르는 새 메뉴, 분류·가격이 빠진 새 메뉴는 기본으로 끕니다.
+export const defaultDiffEnabled = (item: MenuDiffItem) =>
+  (item.kind === 'PRICE_CHANGED' || (item.kind === 'NEW' && item.temperature !== null)) &&
+  diffItemMissing(item) === null;
+
+const describeOption = (item: Pick<MenuDiffItem, 'name' | 'size' | 'temperature'>) =>
+  `${item.name} ${item.size ?? DEFAULT_MENU_SIZE} ${temperatureLabel(item.temperature)}`;
+
+// changes[index] 가 새 메뉴일 때, 같은 메뉴명·사이즈·온도의 옵션이 이미 있거나(등록된 옵션)
+// 지금 화면에서 켜 둔 다른 새 메뉴와 겹치면 안내 문구를 돌려줍니다. 화면의 최신 목록(changes·enabled)으로 검사합니다.
+export function diffOptionConflict(
+  index: number,
+  changes: MenuDiffItem[],
+  enabled: boolean[],
+  unchanged: MenuDiffResult['unchanged'],
 ): string | null {
-  if (item.temperature === null) return null;
-  const key = menuOptionKey(item);
-  const taken =
-    diff.unchanged.some(option => menuOptionKey({ name: option.name, size: option.size, temperature: option.temperature ?? null }) === key) ||
-    diff.changes.some(change => change !== self && change.kind !== 'NEW' && menuOptionKey(change) === key);
-  return taken ? `${item.name} ${temperatureLabel(item.temperature)}는 이미 등록된 옵션이에요. 가격 변경은 메뉴 관리에서 해 주세요.` : null;
+  const target = changes[index];
+  if (!target || target.kind !== 'NEW') return null;
+  const key = menuOptionKey(target);
+  const registered =
+    unchanged.some(option => menuOptionKey({ name: option.name, size: option.size, temperature: option.temperature ?? null }) === key) ||
+    changes.some(change => change.kind !== 'NEW' && menuOptionKey(change) === key);
+  if (registered) {
+    return `${describeOption(target)}는 이미 등록된 옵션이에요. 가격 변경은 메뉴 관리에서 해 주세요.`;
+  }
+  const duplicated = changes.some(
+    (change, i) => i !== index && enabled[i] && change.kind === 'NEW' && menuOptionKey(change) === key,
+  );
+  return duplicated ? `${describeOption(target)}가 두 번 선택됐어요. 하나만 켜 주세요.` : null;
+}
+
+// 반영 직전 검사: 켜 둔 항목마다 빠진 정보와 옵션 중복을 확인합니다. 문제가 없으면 null.
+export function validateDiffSelection(
+  changes: MenuDiffItem[],
+  enabled: boolean[],
+  unchanged: MenuDiffResult['unchanged'],
+): string | null {
+  for (const [index, item] of changes.entries()) {
+    if (!enabled[index]) continue;
+    const problem = diffItemMissing(item) ?? diffOptionConflict(index, changes, enabled, unchanged);
+    if (problem) return problem;
+  }
+  return null;
 }
 
 export function diffSummary(changes: MenuDiffItem[]) {

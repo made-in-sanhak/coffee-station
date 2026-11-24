@@ -7,6 +7,7 @@ import recommendationsRouter from './modules/recommendations/router';
 import reviewSummariesRouter from './modules/reviewSummaries/router';
 import cafesRouter from './modules/cafes/router';
 import { errorHandler, notFound } from './middlewares/errorHandler';
+import authRouter from './modules/auth/router';
 
 export const app = express();
 
@@ -25,6 +26,8 @@ app.use('/api/cafes', cafesRouter);
 // app.use('/api/cafes', cafeRouter);
 app.use('/stores', storesRouter);
 app.use('/api/cafes', localCafesRouter);
+
+app.use('/auth', authRouter);
 
 // 아래 두 줄은 항상 맨 마지막에 둡니다.
 app.use(notFound);

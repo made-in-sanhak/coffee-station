@@ -1,6 +1,7 @@
 import React from 'react';
 import Renderer, { act } from 'react-test-renderer';
 import { Linking, TextInput } from 'react-native';
+import KakaoMapView from '../src/components/map/KakaoMapView';
 import MapScreen from '../src/screens/map/MapScreen';
 import PlaceSearchScreen from '../src/screens/map/PlaceSearchScreen';
 import LocationPermissionScreen from '../src/screens/onboarding/LocationPermissionScreen';
@@ -95,6 +96,24 @@ beforeEach(() => {
   });
 });
 afterEach(() => jest.useRealTimers());
+
+test('the first map opens at Haengsin Station', async () => {
+  useExploreSession.setState(useExploreSession.getInitialState(), true);
+  let tree!: Renderer.ReactTestRenderer;
+  await act(() => {
+    tree = Renderer.create(
+      <MapScreen {...props<React.ComponentProps<typeof MapScreen>>(navigation())} />,
+    );
+  });
+  try {
+    expect(tree.root.findByType(KakaoMapView).props.initialCenter).toEqual({
+      latitude: 37.612122,
+      longitude: 126.834288,
+    });
+  } finally {
+    await act(() => tree.unmount());
+  }
+});
 
 test('map shows only DB cafes with a matching price, excluding duplicate SDK places and unpriced DB cafes', async () => {
   mockResources['/api/cafes'] = [

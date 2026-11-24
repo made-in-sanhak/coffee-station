@@ -11,8 +11,8 @@ export type MapCommand =
     };
 
 export const DEFAULT_MAP_CENTER: Coordinate = {
-  latitude: 37.5665,
-  longitude: 126.978,
+  latitude: 37.612122,
+  longitude: 126.834288,
 };
 
 interface ExploreSession {

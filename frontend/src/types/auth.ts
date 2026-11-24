@@ -6,6 +6,8 @@ export interface User {
 
 export interface KakaoLoginRequest {
   code: string;
+  state: string;
+  flowToken: string;
   redirectUri: string;
 }
 

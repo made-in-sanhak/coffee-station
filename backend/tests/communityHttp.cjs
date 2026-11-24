@@ -10,7 +10,7 @@ const secret=process.env.JWT_SECRET;
 const { verifyAccessToken }=require('../dist/modules/community/auth');
 const sign=(sub,extra={})=>{
  const now=Math.floor(Date.now()/1000);
- const parts=[{alg:'HS256',typ:'JWT'},{sub,iss:'coffee-station',aud:'coffee-station-app',token_use:'access',iat:now,exp:now+600,...extra}].map(v=>Buffer.from(JSON.stringify(v)).toString('base64url'));
+ const parts=[{alg:'HS256',typ:'JWT'},{sub,iss:'coffee-station',aud:'coffee-station-app',token_use:'access',sid:'11111111-1111-4111-8111-111111111111',iat:now,exp:now+600,...extra}].map(v=>Buffer.from(JSON.stringify(v)).toString('base64url'));
  return [...parts,createHmac('sha256',secret).update(parts.join('.')).digest('base64url')].join('.');
 };
 test('service access-token signature, identity, expiry and token purpose',()=>{
@@ -28,6 +28,7 @@ test('MySQL HTTP workflows: compare, report, analytics, reviews, photos, likes, 
  // This destructive reset is confined to an explicitly opted-in disposable DB.
  for(const table of ['community_review_images','community_review_comments','community_review_likes','cafe_price_requests','cafe_interactions','community_reviews'])await pool.query('DELETE FROM '+table);
  await pool.query('UPDATE cafes SET review_count=0,rating_avg=0');
+ await pool.query("INSERT INTO auth_sessions(id,user_id,refresh_hash,expires_at) VALUES('11111111-1111-4111-8111-111111111111',1,REPEAT('a',64),DATE_ADD(NOW(),INTERVAL 1 DAY)) ON DUPLICATE KEY UPDATE revoked_at=NULL,expires_at=DATE_ADD(NOW(),INTERVAL 1 DAY)");
  const server=app.listen(0,'127.0.0.1');await once(server,'listening');
  const base=`http://127.0.0.1:${server.address().port}`;
  async function call(path,method='GET',body,token){

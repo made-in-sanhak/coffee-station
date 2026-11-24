@@ -7,7 +7,7 @@ async function main(){
  const {name:database,...settings}=env.db;
  const connection=await mysql.createConnection({...settings,database,multipleStatements:true});
  try{
-  for(const name of ['002_community_features.sql','003_import_generated_reviews.sql']){
+  for(const name of ['002_community_features.sql','003_import_generated_reviews.sql','004_service_auth.sql']){
    await connection.query(await fs.readFile(path.join(__dirname,'../sql/migrations',name),'utf8'));
    console.log('Applied:',name);
   }

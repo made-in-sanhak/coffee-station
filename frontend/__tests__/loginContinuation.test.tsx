@@ -70,12 +70,12 @@ async function mount(navigation: ReturnType<typeof stack>['navigation']) {
 async function sendCode(tree: Renderer.ReactTestRenderer) {
   const web = tree.root.findAll(node => typeof node.props.source?.uri === 'string')[0];
   let allowed!: boolean;
-  await act(async () => { allowed = web.props.onShouldStartLoadWithRequest({ url: `${env.kakaoRedirectUri}?code=fixture-code` }); });
+  await act(async () => { allowed = web.props.onShouldStartLoadWithRequest({ url: `${env.kakaoRedirectUri}?code=fixture-code&state=${new URL(web.props.source.uri).searchParams.get('state')}` }); });
   await act(async () => { await new Promise<void>(resolve => setTimeout(resolve, 0)); });
   expect(allowed).toBe(false);
 }
 function serviceTransport(success = true) {
-  globalThis.fetch = jest.fn(async () => ({ ok: success,
+  globalThis.fetch = jest.fn(async (url) => String(url).endsWith('/auth/kakao/start') ? ({ok:true,json:async()=>({success:true,data:{authorizeUrl:'https://kauth.kakao.com/oauth/authorize?response_type=code&redirect_uri='+encodeURIComponent(env.kakaoRedirectUri)+'&state=fixture-state',state:'fixture-state',flowToken:'fixture-flow',redirectUri:env.kakaoRedirectUri},message:null})} as Response) : ({ ok: success,
     json: async () => success ? { success: true, data: service, message: null }
       : { success: false, data: null, message: 'fixture login failed' },
   } as Response));

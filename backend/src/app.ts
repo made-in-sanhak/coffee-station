@@ -1,3 +1,4 @@
+import { loginRouter, sessionRouter } from './modules/auth/router';
 import storesRouter from './routes/stores';
 import reviewsRouter, { reviewImagesRouter } from './routes/reviews';
 import { comparisonRouter, cafeFeaturesRouter } from './modules/community/cafes';
@@ -21,6 +22,8 @@ app.use('/api/reviews', express.json({ limit: '9mb' }));
 app.use(express.json({ limit: '1mb' }));
 
 app.use('/health', healthRouter);
+app.use('/auth', loginRouter);
+app.use('/api/auth', sessionRouter);
 app.use('/api/reviews', reviewsRouter);
 app.use('/api/review-images', reviewImagesRouter);
 app.use('/api/menus', comparisonRouter);

@@ -1,6 +1,7 @@
 # 가격 비교·매장 제보·리뷰 API (로컬 작업)
 
-프론트 변경, git commit/push 없음. 이벤트·할인·점주 승인·로그인 발급 API는 제외.
+최신 develop 통합과 로그인 연결을 포함한 로컬 작업이다. 원격 push/PR은 없다.
+이벤트·할인·점주 승인 API는 제외하며 로그인 구현은 local-login-integration.md를 참조한다.
 
 ## DB 적용
 
@@ -17,20 +18,13 @@ community_reviews로 가져온다. 둘 다 재실행 가능하다. 001/기존 �
 기존 매장·메뉴 가격은 바꾸지 않으며 평점/리뷰 수는 리뷰 테이블 기준으로 갱신한다.
 사진은 MySQL MEDIUMBLOB에 저장하여 서버 재시작 후 유지한다.
 
-## 실제 로그인 연결 (쓰기 기능 전 필수)
+## 실제 로그인 연결
 
-현재 카카오 로그인은 미완성이다. 조회는 비로그인 가능하지만 리뷰 작성·좋아요·댓글·가격 제보는
-정상 서비스 액세스 토큰이 필요하다. mock/Kakao 토큰이나 요청의 authorId를 신원으로 쓰지 않는다.
-로그인 담당자는 회원 조회/생성 후 동일 서비스 ID/닉네임을 community_accounts(user_id,nickname)에
-upsert하고 아래 토큰을 발급한다. 정지/탈퇴 시 active=0으로 동기화한다.
-
-- JWT_SECRET: 서버 공통 무작위 32자 이상. change-me 기본값 금지. git에 저장하지 않는다.
-- header: alg=HS256, typ=JWT, crit 미지원.
-- claims: sub=양의 안전한 정수 회원 ID 문자열, iss=coffee-station, aud=coffee-station-app,
-  token_use=access, iat=발급 Unix 초, exp=만료 Unix 초. nbf가 있으면 검증한다.
-- 기존 프론트 응답 {accessToken,refreshToken,user:{id:number,nickname,profileImageUrl}} 유지.
-- 최종 팀 JWT 규격이 다르면 modules/community/auth.ts 어댑터를 변경한다. 프론트 수정은 불필요하다.
-- 이 작업은 회원 로그인·리프레시 발급/폐기를 대체하지 않는다. 매 요청 활성 계정을 검증한다.
+로컬 통합 브랜치에서 카카오 로그인 백엔드가 추가되었다. 자세한 실행/설정은
+[로컬 로그인 통합](local-login-integration.md)을 따른다. 실제 회원 ID는 auth_users에서 발급하고
+community_accounts에 연결한다. 인증 API가 서비스 JWT와 세션을 발급하므로 수동 계정 삽입은 필요 없다.
+토큰 검증은 서명/만료/발급자/대상/세션/활성 회원을 확인한다. mock 토큰은 허용하지 않는다.
+프론트 화면 구성은 유지하며 로그인 요청에 일회용 state/flowToken만 연결했다.
 
 ## 경로
 

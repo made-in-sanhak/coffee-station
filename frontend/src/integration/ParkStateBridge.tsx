@@ -10,7 +10,10 @@ export default function ParkStateBridge() {
   const personalReady = usePersonalStore(state => state.hydrated);
   useEffect(() => {
     if (!ready || !personalReady || !completed) return;
-    void usePersonalStore.getState().setPreferences(mapParkPreferences(preferences))
+    const personal = usePersonalStore.getState();
+    const mapped = mapParkPreferences(preferences, personal.preferences);
+    if (personal.onboarded && JSON.stringify(mapped) === JSON.stringify(personal.preferences)) return;
+    void personal.setPreferences(mapped)
       .catch(() => { /* The personal store keeps its error and original records. */ });
   }, [ready, completed, preferences, personalReady]);
   return null;

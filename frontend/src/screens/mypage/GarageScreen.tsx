@@ -11,7 +11,7 @@ import {
   purchaseDateKey,
   purchaseSourceLabel,
 } from '../purchase/purchaseMath';
-import { RewardAsset } from '../receipt/RewardVisuals';
+import { CaffeineGauge, RewardAsset } from '../receipt/RewardVisuals';
 import { rewardColors as c, rewardStyles as s } from '../receipt/RewardStyles';
 import { getLastOrder } from '../order/lastOrder';
 
@@ -34,40 +34,6 @@ const skins = [
   { name: '콜드브루 SUV', level: 4 },
   { name: '스페셜티 스포츠', level: 6 },
 ];
-
-function CaffeineGauge({ value }: { value: number }) {
-  const progress = Math.min(Math.max(value / 400, 0), 1);
-  const segments = Math.round(progress * 90);
-  return (
-    <View accessibilityLabel={`오늘 확인된 카페인 ${value}mg`} style={st.gauge}>
-      <RewardAsset name="gaugeBackground" />
-      {value === 300 ? (
-        <Image
-          source={require('../../assets/figma/rewards/b068b.png')}
-          style={st.gauge300}
-        />
-      ) : (
-        Array.from({ length: segments }, (_, index) => {
-          const angle = Math.PI + (Math.PI * (index + 0.5)) / 90;
-          return (
-            <View
-              key={index}
-              style={[
-                st.gaugeSegment,
-                {
-                  left: 60 + 53 * Math.cos(angle) - 7,
-                  top: 60 + 53 * Math.sin(angle) - 1.1,
-                  transform: [{ rotate: `${(angle * 180) / Math.PI}deg` }],
-                },
-              ]}
-            />
-          );
-        })
-      )}
-      <Text style={st.gaugeNumber}>{Math.round(value)}</Text>
-    </View>
-  );
-}
 
 export default function GarageScreen({
   navigation,
@@ -220,7 +186,8 @@ export default function GarageScreen({
   const openVisit = (purchase: Purchase) =>
     purchase.cafeId
       ? navigation.navigate('CafeDetail', { cafeId: purchase.cafeId })
-      : navigation.navigate('Calendar');
+      : openCalendar();
+  const openCalendar = () => navigation.navigate('Calendar', undefined, { pop: true });
   return (
     <Screen navigation={navigation} tab="garage">
       <View style={s.content}>
@@ -296,7 +263,7 @@ export default function GarageScreen({
             {
               value: `${totalCups}잔`,
               label: '누적 주유',
-              press: () => navigation.navigate('Calendar'),
+              press: openCalendar,
             },
             {
               value: `${visited.size}곳`,
@@ -405,7 +372,7 @@ export default function GarageScreen({
             <View style={s.flex}>
               <Button
                 label="구매 캘린더"
-                onPress={() => navigation.navigate('Calendar')}
+                onPress={openCalendar}
               />
             </View>
             <View style={s.flex}>
@@ -562,32 +529,6 @@ const st = StyleSheet.create({
     overflow: 'hidden',
   },
   xpFill: { height: 10, borderRadius: 5, backgroundColor: c.green },
-  gauge: { width: 120, height: 66, overflow: 'hidden' },
-  gauge300: {
-    width: 102.426,
-    height: 60,
-    position: 'absolute',
-    left: 0,
-    top: 0,
-  },
-  gaugeNumber: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 34,
-    fontFamily: tokens.font,
-    fontSize: 18,
-    lineHeight: 25,
-    textAlign: 'center',
-    color: c.brown,
-    fontWeight: '900',
-  },
-  gaugeSegment: {
-    position: 'absolute',
-    width: 14,
-    height: 2.2,
-    backgroundColor: c.brown,
-  },
   stat: {
     flex: 1,
     paddingHorizontal: 4,

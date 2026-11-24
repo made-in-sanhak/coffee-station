@@ -6,7 +6,7 @@ import { tokens, Button, Empty, Screen, formatMoney } from '../../app/ui';
 import type { RootStackScreenProps } from '../../navigation/types';
 import { usePersonalStore } from '../../store/personalStore';
 import { useSessionStore } from '../../store/sessionStore';
-import { RewardAsset } from '../receipt/RewardVisuals';
+import { CaffeineGauge, RewardAsset } from '../receipt/RewardVisuals';
 import { rewardColors as c, rewardStyles as s } from '../receipt/RewardStyles';
 import {
   localDateKey,
@@ -19,6 +19,12 @@ import {
 } from './purchaseMath';
 
 const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+type PurchaseStatistics = {
+  count?: number;
+  visitedCafeCount?: number;
+  reviewCount?: number;
+  savedAmount?: number;
+};
 const time = (value: string) => {
   const date = new Date(value);
   return `${String(date.getHours()).padStart(2, '0')}:${String(
@@ -33,6 +39,8 @@ export default function CalendarScreen({
   const user = useSessionStore(state => state.user);
   const local = usePersonalStore(state => state.purchases);
   const removePurchase = usePersonalStore(state => state.removePurchase);
+  const personalError = usePersonalStore(state => state.error);
+  const hydratePersonal = usePersonalStore(state => state.hydrate);
   const [{ year, month }, setMonth] = useState({
     year: now.getFullYear(),
     month: now.getMonth(),
@@ -46,6 +54,12 @@ export default function CalendarScreen({
     { month: `${year}-${String(month + 1).padStart(2, '0')}` },
     !!user,
   );
+  const statistics = useResource<PurchaseStatistics>(
+    '/api/users/me/statistics',
+    undefined,
+    !!user,
+  );
+  const history = useResource<Purchase[]>('/api/purchases', undefined, !!user);
   const purchases = useMemo(
     () =>
       [
@@ -83,6 +97,35 @@ export default function CalendarScreen({
     0,
   );
   const unknown = selected.some(item => item.caffeineMg === null);
+  const dayLabel = selectedKey === localDateKey(now) ? '오늘' : '선택한 날';
+  const knownHistory = [
+    ...new Map(
+      [...(history.data ?? []), ...purchases].map(record => [record.id, record]),
+    ).values(),
+  ].filter(record => !deletedIds.includes(record.id));
+  const knownCups = knownHistory.reduce((sum, record) => sum + record.quantity, 0);
+  const knownVisits = new Set(
+    knownHistory.map(record => record.cafeId || record.cafeName),
+  ).size;
+  const lifetimeStats = [
+    { label: '누적 주유', value: `${Math.max(statistics.data?.count ?? 0, knownCups)}잔` },
+    {
+      label: '방문 카페',
+      value: `${Math.max(statistics.data?.visitedCafeCount ?? 0, knownVisits)}곳`,
+    },
+    {
+      label: '작성 리뷰',
+      value: statistics.data?.reviewCount === undefined
+        ? '—'
+        : `${statistics.data.reviewCount}개`,
+    },
+    {
+      label: '아낀 금액',
+      value: statistics.data?.savedAmount === undefined
+        ? '—'
+        : formatMoney(statistics.data.savedAmount),
+    },
+  ];
   const cells = monthCells(year, month);
   const weeks = Array.from({ length: cells.length / 7 }, (_, index) =>
     cells.slice(index * 7, index * 7 + 7),
@@ -105,7 +148,11 @@ export default function CalendarScreen({
       }
       await removePurchase(record.id);
       setDeletedIds(previous => [...previous, record.id]);
-      resource.reload();
+      if (!record.id.startsWith('local-') && user) {
+        resource.reload();
+        statistics.reload();
+        history.reload();
+      }
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : '기록을 삭제하지 못했습니다.',
@@ -144,6 +191,18 @@ export default function CalendarScreen({
   return (
     <Screen navigation={navigation} tab="garage">
       <View style={s.content}>
+        {personalError && (
+          <View style={s.card}>
+            <Text accessibilityRole="alert" style={s.error}>
+              {personalError}
+            </Text>
+            <Button
+              label="개인 기록 다시 불러오기"
+              variant="outline"
+              onPress={hydratePersonal}
+            />
+          </View>
+        )}
         <View style={s.between}>
           <Text style={s.title}>구매 캘린더</Text>
           <View style={s.row}>
@@ -170,6 +229,11 @@ export default function CalendarScreen({
             </Pressable>
           </View>
         </View>
+        <Button
+          label="나의 커피 취향 수정"
+          variant="outline"
+          onPress={() => navigation.navigate('Preferences')}
+        />
         <View style={s.stats}>
           <View style={s.stat}>
             <Text style={s.small}>이번 달 지출</Text>
@@ -180,7 +244,12 @@ export default function CalendarScreen({
             <Text style={s.statValue}>{stats.totalCups}잔</Text>
           </View>
           <View style={s.stat}>
-            <Text style={s.small}>카페인 평균</Text>
+            <Text
+              style={s.small}
+              accessibilityLabel="카페인 평균, 구매 기록이 있는 날의 확인된 함량 기준"
+            >
+              카페인 평균
+            </Text>
             <Text style={s.statValue}>
               {noKnownCaffeine ? '—' : `${stats.averageCaffeineMg}mg`}
             </Text>
@@ -240,9 +309,37 @@ export default function CalendarScreen({
             </View>
           ))}
         </View>
-        <Text style={s.small}>
-          카페인 평균은 구매 기록이 있는 날의 확인된 함량 기준이에요.
-        </Text>
+        <View style={[s.card, st.gaugeCard]}>
+          <View style={[s.row, s.gap16]}>
+            <CaffeineGauge value={caffeine} day={dayLabel} />
+            <View style={[s.flex, s.gap4]}>
+              <View style={[s.row, s.gap4]}>
+                <RewardAsset name="gauge" />
+                <Text style={s.heading}>카페인 계기판</Text>
+              </View>
+              <Text style={[s.subtitle, st.gaugeValue]}>
+                {dayLabel} {caffeine}mg / 참고 400mg
+              </Text>
+              <Text style={s.small}>
+                {unknown
+                  ? '함량 미등록 메뉴가 포함돼 있어요.'
+                  : selected.length === 0
+                    ? '구매 기록을 추가하면 함량을 볼 수 있어요.'
+                    : '기록된 메뉴의 카페인 함량이에요.'}
+              </Text>
+            </View>
+          </View>
+        </View>
+        <View style={s.stats}>
+          {lifetimeStats.map(({ label, value }) => (
+            <View key={label} style={[s.stat, st.centeredStat]}>
+              <Text style={s.statValue} numberOfLines={1} adjustsFontSizeToFit>
+                {value}
+              </Text>
+              <Text style={s.small}>{label}</Text>
+            </View>
+          ))}
+        </View>
         <View style={s.card}>
           <View style={s.between}>
             <Text style={[s.heading, s.font15]}>
@@ -278,30 +375,6 @@ export default function CalendarScreen({
               </Pressable>
             ))
           )}
-          <View style={s.gap6}>
-            <View style={s.between}>
-              <View style={[s.row, s.gap4]}>
-                <RewardAsset name="zapSmall" />
-                <Text style={s.muted}>
-                  {selectedKey === localDateKey(now)
-                    ? '오늘 카페인'
-                    : '이날 카페인'}
-                  {unknown ? ' · 미등록 포함' : ''}
-                </Text>
-              </View>
-              <Text style={[s.small, s.bold, { color: c.brown }]}>
-                {caffeine} / 400mg
-              </Text>
-            </View>
-            <View style={st.caffeineTrack}>
-              <View
-                style={[
-                  st.caffeineProgress,
-                  { width: `${Math.min((caffeine / 400) * 100, 100)}%` },
-                ]}
-              />
-            </View>
-          </View>
         </View>
         {(error || resource.error) && (
           <Text accessibilityRole="alert" style={s.error}>
@@ -342,6 +415,9 @@ export default function CalendarScreen({
 
 const st = StyleSheet.create({
   timeWidth: { width: 33 },
+  gaugeCard: { paddingVertical: 14 },
+  gaugeValue: { color: c.brown },
+  centeredStat: { alignItems: 'center', paddingHorizontal: 4, gap: 0 },
   calendar: {
     backgroundColor: c.white,
     borderWidth: 1,
@@ -375,11 +451,4 @@ const st = StyleSheet.create({
   },
   selected: { backgroundColor: c.green },
   selectedText: { color: c.white, fontWeight: '700' },
-  caffeineTrack: {
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
-    backgroundColor: c.card,
-  },
-  caffeineProgress: { height: 8, borderRadius: 4, backgroundColor: c.brown },
 });

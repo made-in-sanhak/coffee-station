@@ -28,50 +28,13 @@ import ExploreIcon from '../../components/map/ExploreIcon';
 import type { RootStackScreenProps } from '../../navigation/types';
 import { distanceLabel } from '../map/exploreLogic';
 
-const MENU_CATEGORIES = ['커피', '디카페인', '에이드·음료', '차'] as const;
-type MenuCategory = (typeof MENU_CATEGORIES)[number];
-
-function getMenuCategory(menu: Menu): MenuCategory {
-  const category = (menu.category ?? '').trim().toUpperCase();
-
-  if (['DECAF', 'DECAFFEINE', '디카페인'].includes(category)) {
-    return '디카페인';
-  }
-  if (['COFFEE', '커피'].includes(category)) return '커피';
-  if (['BEVERAGE', 'ADE', 'DRINK', 'NON_COFFEE', 'NON-COFFEE', '음료', '에이드'].includes(category)) {
-    return '에이드·음료';
-  }
-  if (['TEA', '차', '티'].includes(category)) return '차';
-
-  const name = menu.name.toLowerCase().replace(/\s/g, '');
-
-  if (/디카페인|decaf/.test(name)) return '디카페인';
-
-  if (
-    menu.caffeineMg !== null &&
-    Number.isFinite(menu.caffeineMg) &&
-    menu.caffeineMg >= 0 &&
-    menu.caffeineMg <= 10
-  ) {
-    return '디카페인';
-  }
-
-  if (/아메리카노|카페라떼|카페모카|카푸치노|마키아토|에스프레소|콜드브루|바닐라라떼|카페오레/.test(name)) {
-    return '커피';
-  }
-
-  if (/밀크티|아이스티|녹차|홍차|허브티|캐모마일|페퍼민트|유자차|레몬티/.test(name)) {
-    return '차';
-  }
-
-  if (/에이드|스무디|주스|쥬스|초코|프라페|쉐이크/.test(name)) {
-    return '에이드·음료';
-  }
-
-  if (/티|차/.test(name)) return '차';
-
-  return '커피';
-}
+import {
+  COLLAPSED_MENU_COUNT,
+  countMenusByCategory,
+  getMenuCategory,
+  MENU_CATEGORIES,
+  type MenuCategory,
+} from './menuCategory';
 
 export default function CafeDetailScreen({
   navigation,
@@ -98,7 +61,9 @@ export default function CafeDetailScreen({
       }
     : suppliedCafe;
 
-  const menus = menuResource.data ?? cafe?.menus ?? [];
+  // cafe 는 렌더마다 새 객체라 메뉴 목록은 원본 데이터 기준으로 고정합니다.
+  const sourceMenus = menuResource.data ?? (detail.data ?? suppliedCafe)?.menus;
+  const menus = useMemo(() => sourceMenus ?? [], [sourceMenus]);
   const availableMenus = useMemo(
     () => menus.filter(menu => menu.available !== false),
     [menus],
@@ -108,29 +73,21 @@ export default function CafeDetailScreen({
     useState<MenuCategory>('커피');
   const [showAllMenus, setShowAllMenus] = useState(false);
 
-  const categoryCounts = useMemo(() => {
-    const counts: Record<MenuCategory, number> = {
-      커피: 0,
-      디카페인: 0,
-      '에이드·음료': 0,
-      차: 0,
-    };
+  const categoryCounts = useMemo(
+    () => countMenusByCategory(availableMenus),
+    [availableMenus],
+  );
 
-    availableMenus.forEach(menu => {
-      counts[getMenuCategory(menu)] += 1;
-    });
-
-    return counts;
-  }, [availableMenus]);
-
+  // 카페가 바뀌거나 카테고리 구성이 달라질 때만 첫 탭·접힌 상태로 되돌립니다.
+  const firstAvailable =
+    MENU_CATEGORIES.find(category => categoryCounts[category] > 0) ?? '커피';
+  const categoryKey = MENU_CATEGORIES.map(
+    category => categoryCounts[category],
+  ).join(',');
   useEffect(() => {
-    const firstAvailable = MENU_CATEGORIES.find(
-      category => categoryCounts[category] > 0,
-    );
-
-    setSelectedCategory(firstAvailable ?? '커피');
+    setSelectedCategory(firstAvailable);
     setShowAllMenus(false);
-  }, [cafeId, categoryCounts]);
+  }, [cafeId, categoryKey, firstAvailable]);
 
   const filteredMenus = availableMenus.filter(
     menu => getMenuCategory(menu) === selectedCategory,
@@ -138,7 +95,7 @@ export default function CafeDetailScreen({
 
   const visibleMenus = showAllMenus
     ? filteredMenus
-    : filteredMenus.slice(0, 3);
+    : filteredMenus.slice(0, COLLAPSED_MENU_COUNT);
 
   const deal = dealResource.data?.find(
     item =>
@@ -352,6 +309,7 @@ export default function CafeDetailScreen({
                 return (
                   <Pressable
                     key={category}
+                    testID={`cafe-menu-tab-${category}`}
                     disabled={disabled}
                     accessibilityRole="button"
                     accessibilityState={{ selected, disabled }}
@@ -421,14 +379,23 @@ export default function CafeDetailScreen({
                   ))}
                 </Pressable>
 
-                {filteredMenus.length > 3 ? (
+                {filteredMenus.length > COLLAPSED_MENU_COUNT ? (
                   <Pressable
+                    testID="cafe-menu-more"
                     accessibilityRole="button"
+                    accessibilityLabel={
+                      showAllMenus
+                        ? `${selectedCategory} 메뉴 접기`
+                        : `${selectedCategory} 메뉴 전체 보기, ${filteredMenus.length}개`
+                    }
+                    accessibilityState={{ expanded: showAllMenus }}
                     onPress={() => setShowAllMenus(value => !value)}
                     style={styles.moreButton}
                   >
                     <Text style={styles.moreButtonText}>
-                      {showAllMenus ? '접기' : `전체 보기 (${filteredMenus.length}개)`}
+                      {showAllMenus
+                        ? '접기  ˄'
+                        : `${selectedCategory} 메뉴 전체 보기 ›`}
                     </Text>
                   </Pressable>
                 ) : null}
@@ -729,7 +696,7 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font,
     fontSize: 13,
     fontWeight: '700',
-    color: tokens.green,
+    color: tokens.muted,
   },
   source: {
     paddingHorizontal: 10,

@@ -205,9 +205,90 @@ test(
         )
       );
       assert.ok(!options.some((item) => item.name === "캐모마일티"));
+      const recommended = await call("/api/recommendations/search", {
+        conditions: { maxPrice: 2100 },
+      });
+      assert.equal(recommended.status, 200, recommended.message);
+      const ownerPrice = recommended.data.items.find(
+        (item) => item.cafe.id === cafeId
+      ).matchedMenu;
+      assert.equal(ownerPrice.price, 2000);
+      assert.equal(ownerPrice.source, "OWNER");
+      assert.equal(ownerPrice.isDemo, false);
+      assert.match(ownerPrice.checkedAt, /^\d{4}-\d{2}-\d{2}$/);
+      const mvp = await call("/api/recommendations/mvp/search", {
+        constraints: {
+          menu_code: "AMERICANO",
+          temperature: "ICE",
+          max_price_krw: 2100,
+        },
+      });
+      assert.equal(mvp.status, 200, mvp.message);
+      assert.ok(
+        mvp.data.recommendations.some(
+          (item) =>
+            item.cafe_id === cafeId &&
+            item.source === "OWNER" &&
+            item.price_krw === 2000
+        )
+      );
     } finally {
       await new Promise((resolve) => server.close(resolve));
       await pool.end();
     }
   }
 );
+
+test("decimal menu prices preserve a manual candidate when the currency unit is unknown", () => {
+  const parsed = ocr.parseMenuBoard({
+    images: [
+      {
+        inferResult: "SUCCESS",
+        fields: [field("카페라떼", 20, 30), field("3.5", 300, 30)],
+      },
+    ],
+  });
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0].price, null);
+  assert.equal(parsed[0].confidence, 0);
+  assert.match(parsed[0].note, /가격 단위/);
+  const current = [
+    {
+      name: "카페라떼",
+      menuId: "1",
+      category: "COFFEE",
+      size: "Regular",
+      temperature: "HOT",
+      price: 3000,
+      available: true,
+    },
+  ];
+  const diff = menuDifference([{ ...parsed[0], temperature: "HOT" }], current);
+  assert.equal(diff.changes[0].kind, "PRICE_CHANGED");
+  assert.equal(diff.changes[0].price, null);
+});
+
+test("decimal prices use an explicit thousand-won unit without changing ordinary won amounts", () => {
+  const items = ocr.parseMenuBoard({
+    images: [
+      {
+        inferResult: "SUCCESS",
+        fields: [
+          field("단위:", 20, 10),
+          field("천원", 100, 10),
+          field("카페라떼", 20, 40),
+          field("3.5", 300, 40),
+          field("바닐라라떼", 20, 70),
+          field("4.90", 300, 70),
+          field("아메리카노", 20, 100),
+          field("2,000", 300, 100),
+        ],
+      },
+    ],
+  });
+  assert.deepEqual(
+    items.map((x) => x.price),
+    [3500, 4900, 2000]
+  );
+  assert.ok(items.every((x) => x.confidence > 0.8));
+});

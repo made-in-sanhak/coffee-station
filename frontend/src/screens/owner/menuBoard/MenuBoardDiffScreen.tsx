@@ -45,7 +45,7 @@ const detail = (item: MenuDiffItem) => {
   return `${option(item)} · 반영하면 판매 중지로 바뀌어요`;
 };
 
-interface NewMenuDraft {
+interface MenuDraft {
   index: number;
   price: string;
   category: MenuBoardCategory | null;
@@ -59,11 +59,11 @@ export default function MenuBoardDiffScreen({
   const cafe = useMenuBoardStore(state => state.cafe);
   const diff = useMenuBoardStore(state => state.diff);
   const unchanged = diff?.unchanged ?? [];
-  // 새 메뉴의 온도·가격·분류를 점주가 고칠 수 있어 변경 목록을 화면 상태로 들고 있습니다.
+  // 새 메뉴 정보와 기존 메뉴의 변경 가격을 점주가 고칠 수 있도록 화면 상태로 관리합니다.
   const [changes, setChanges] = useState<MenuDiffItem[]>(() => diff?.changes ?? []);
   const [enabled, setEnabled] = useState<boolean[]>(() => (diff?.changes ?? []).map(defaultDiffEnabled));
   const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
-  const [draft, setDraft] = useState<NewMenuDraft | null>(null);
+  const [draft, setDraft] = useState<MenuDraft | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const summary = diffSummary(changes);
@@ -183,7 +183,8 @@ export default function MenuBoardDiffScreen({
             const on = !!enabled[index];
             const badge = BADGE[item.kind];
             const isNew = item.kind === 'NEW';
-            const missing = isNew ? diffItemMissing(item) : null;
+            const editable = item.kind !== 'MISSING';
+            const missing = diffItemMissing(item);
             const openDraft = () =>
               setDraft({
                 index,
@@ -199,10 +200,10 @@ export default function MenuBoardDiffScreen({
                   style={[styles.row, item.kind === 'MISSING' && !on && styles.dimmed]}
                 >
                   <Pressable
-                    accessibilityRole={isNew ? 'button' : undefined}
-                    accessibilityLabel={isNew ? `${item.name} 새 메뉴 정보 수정` : undefined}
-                    testID={isNew ? `menu-diff-edit-${index}` : undefined}
-                    disabled={!isNew}
+                    accessibilityRole={editable ? 'button' : undefined}
+                    accessibilityLabel={editable ? `${item.name} ${isNew ? '새 메뉴 정보' : '가격'} 수정` : undefined}
+                    testID={editable ? `menu-diff-edit-${index}` : undefined}
+                    disabled={!editable}
                     onPress={openDraft}
                     style={styles.text}
                   >
@@ -247,10 +248,10 @@ export default function MenuBoardDiffScreen({
                 )}
                 {missing && (
                   <View style={styles.hint} testID={`menu-diff-missing-${index}`}>
-                    <Text style={styles.hintText}>가격·분류를 입력해야 반영할 수 있어요.</Text>
+                    <Text style={styles.hintText}>{isNew ? '가격·분류를 입력해야 반영할 수 있어요.' : '가격을 입력해야 반영할 수 있어요.'}</Text>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={`${item.name} 가격·분류 입력`}
+                      accessibilityLabel={`${item.name} ${isNew ? '가격·분류' : '가격'} 입력`}
                       testID={`menu-diff-fix-${index}`}
                       onPress={openDraft}
                       style={({ pressed }) => [styles.smallButton, pressed && o.pressed]}
@@ -305,7 +306,7 @@ export default function MenuBoardDiffScreen({
             <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.editorContent}>
               {draft && (
                 <>
-                  <Text style={o.pageTitle}>{changes[draft.index]?.name} 새 메뉴</Text>
+                  <Text style={o.pageTitle}>{changes[draft.index]?.name} {changes[draft.index]?.kind === 'NEW' ? '새 메뉴' : '가격 변경'}</Text>
                   <Field
                     label="가격 (원)"
                     testID="menu-diff-editor-price"
@@ -313,30 +314,34 @@ export default function MenuBoardDiffScreen({
                     keyboardType="number-pad"
                     onChangeText={price => setDraft({ ...draft, price: digitsOnly(price) })}
                   />
-                  <Text style={[o.body, o.bold]}>분류</Text>
-                  <View style={styles.chips}>
-                    {MENU_BOARD_CATEGORIES.map(category => (
-                      <Chip
-                        key={category.code}
-                        testID={`menu-diff-editor-category-${category.code}`}
-                        label={category.label}
-                        selected={draft.category === category.code}
-                        onPress={() => setDraft({ ...draft, category: category.code })}
-                      />
-                    ))}
-                  </View>
-                  <Text style={[o.body, o.bold]}>온도</Text>
-                  <View style={styles.chips}>
-                    {MENU_TEMPERATURES.map(choice => (
-                      <Chip
-                        key={choice.label}
-                        testID={`menu-diff-editor-temperature-${choice.code ?? 'UNKNOWN'}`}
-                        label={choice.label}
-                        selected={draft.temperature === choice.code}
-                        onPress={() => setDraft({ ...draft, temperature: choice.code })}
-                      />
-                    ))}
-                  </View>
+                  {changes[draft.index]?.kind === 'NEW' && (
+                    <>
+                      <Text style={[o.body, o.bold]}>분류</Text>
+                      <View style={styles.chips}>
+                        {MENU_BOARD_CATEGORIES.map(category => (
+                          <Chip
+                            key={category.code}
+                            testID={`menu-diff-editor-category-${category.code}`}
+                            label={category.label}
+                            selected={draft.category === category.code}
+                            onPress={() => setDraft({ ...draft, category: category.code })}
+                          />
+                        ))}
+                      </View>
+                      <Text style={[o.body, o.bold]}>온도</Text>
+                      <View style={styles.chips}>
+                        {MENU_TEMPERATURES.map(choice => (
+                          <Chip
+                            key={choice.label}
+                            testID={`menu-diff-editor-temperature-${choice.code ?? 'UNKNOWN'}`}
+                            label={choice.label}
+                            selected={draft.temperature === choice.code}
+                            onPress={() => setDraft({ ...draft, temperature: choice.code })}
+                          />
+                        ))}
+                      </View>
+                    </>
+                  )}
                 </>
               )}
               <Button testID="menu-diff-editor-done" label="확인" onPress={saveDraft} />

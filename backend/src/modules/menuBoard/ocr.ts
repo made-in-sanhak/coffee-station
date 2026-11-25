@@ -14,6 +14,7 @@ export type MenuCandidate = {
   temperature: Temperature;
   price: number | null;
   confidence: number;
+  note?: string;
 };
 const maxImage = 10 * 1024 * 1024;
 const maxUpload = 20 * 1024 * 1024;
@@ -95,13 +96,25 @@ export function parseMenuBoard(value: unknown): MenuCandidate[] {
     else rows.push([word]);
   }
   const items: MenuCandidate[] = [];
+  // Decimal menu prices are often expressed in thousands of won. Convert only
+  // when this image states the unit; otherwise preserve a manual-review item.
+  const thousandWon = /단위\s*[:：]?\s*(?:천\s*원|1[,.]?000\s*원)/i.test(
+    rows
+      .map((row) =>
+        [...row]
+          .sort((a, b) => a.x - b.x)
+          .map((word) => word.name)
+          .join(" ")
+      )
+      .join("\n")
+  );
   for (const row of rows) {
     const ordered = row.sort((a, b) => a.x - b.x);
     let names: string[] = [];
     let confidence = 1;
     for (const word of ordered) {
       const match = word.name.match(
-        /^(?:(.*?)\s+)?(\d{1,3}(?:,\d{3})+|\d{3,7})\s*원?$/
+        /^(?:(.*?)\s+)?(\d{1,3}(?:,\d{3})+|\d{1,3}\.\d{1,2}|\d{3,7})\s*원?$/
       );
       confidence = Math.min(confidence, Math.max(0, word.confidence));
       if (!match) {
@@ -110,7 +123,14 @@ export function parseMenuBoard(value: unknown): MenuCandidate[] {
       }
       if (match[1]) names.push(match[1]);
       const raw = names.join(" ");
-      const price = Number(match[2].replace(/,/g, ""));
+      const decimal = match[2].includes(".");
+      const amount = Number(match[2].replace(/,/g, ""));
+      const price = decimal
+        ? thousandWon
+          ? Math.round(amount * 1000)
+          : null
+        : amount;
+      if (decimal && price === null) confidence = 0;
       const temperature = /(?:\bICE[D]?\b|아이스|콜드브루)/i.test(raw)
         ? "ICE"
         : /\bHOT\b|핫/.test(raw.toUpperCase())
@@ -130,9 +150,9 @@ export function parseMenuBoard(value: unknown): MenuCandidate[] {
         name &&
         name.length <= 100 &&
         /\p{L}/u.test(name) &&
-        !/^(?:합계|총액|전화|사업자)/.test(name) &&
-        price >= 100 &&
-        price <= 1000000
+        !/^(?:합계|총액|전화|사업자|단위)/.test(name) &&
+        amount > 0 &&
+        (price === null || (price >= 100 && price <= 1000000))
       ) {
         const category = /디카페인|decaf/i.test(name)
           ? "DECAF"
@@ -145,7 +165,17 @@ export function parseMenuBoard(value: unknown): MenuCandidate[] {
           : /티$|차$|\btea\b/i.test(name)
           ? "TEA"
           : null;
-        items.push({ name, category, size, temperature, price, confidence });
+        items.push({
+          name,
+          category,
+          size,
+          temperature,
+          price,
+          confidence,
+          ...(decimal && price === null
+            ? { note: "가격 단위를 확인해 원 단위로 입력해 주세요." }
+            : {}),
+        });
       }
       names = [];
       confidence = 1;

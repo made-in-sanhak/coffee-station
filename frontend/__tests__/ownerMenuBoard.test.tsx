@@ -483,3 +483,63 @@ test('a new menu missing price and category starts off, explains why and can be 
   ]);
   await act(() => tree.unmount());
 });
+
+test('an uncertain existing price can be filled in and submitted without changing its option identity', async () => {
+  useMenuBoardStore.getState().start('update', cafe);
+  useMenuBoardStore.getState().setDiff({
+    changes: [
+      {
+        kind: 'PRICE_CHANGED',
+        menuId: 'existing-price',
+        name: '카페라떼',
+        category: 'COFFEE',
+        size: 'Regular',
+        temperature: 'HOT',
+        previousPrice: 3000,
+        price: null,
+      },
+    ],
+    unchanged: [],
+  });
+  mockApi.applyMenuDiff.mockResolvedValue({ applied: 1 });
+  const navigation = nav();
+  let tree!: Renderer.ReactTestRenderer;
+  await act(() => {
+    tree = Renderer.create(
+      <MenuBoardDiffScreen
+        {...({ navigation, route: route('MenuBoardDiff') } as any)}
+      />,
+    );
+  });
+  expect(find(tree, 'menu-diff-toggle-0').props.accessibilityState).toEqual({
+    checked: false,
+  });
+  expect(texts(tree)).toContain('가격을 입력해야 반영할 수 있어요.');
+  await act(() => find(tree, 'menu-diff-fix-0').props.onPress());
+  await act(() =>
+    find(tree, 'menu-diff-editor-price', 'onChangeText').props.onChangeText(
+      '3,500',
+    ),
+  );
+  expect(
+    tree.root.findAll(
+      node => node.props.testID === 'menu-diff-editor-category-COFFEE',
+    ),
+  ).toHaveLength(0);
+  await act(() => find(tree, 'menu-diff-editor-done').props.onPress());
+  await act(() => find(tree, 'menu-diff-toggle-0').props.onPress());
+  await act(async () => {
+    await find(tree, 'menu-diff-apply').props.onPress();
+  });
+  expect(mockApi.applyMenuDiff.mock.calls[0][1].changes).toEqual([
+    expect.objectContaining({
+      kind: 'PRICE_CHANGED',
+      menuId: 'existing-price',
+      temperature: 'HOT',
+      size: 'Regular',
+      previousPrice: 3000,
+      price: 3500,
+    }),
+  ]);
+  await act(() => tree.unmount());
+});

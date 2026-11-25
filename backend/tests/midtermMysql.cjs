@@ -16,3 +16,27 @@ test('seed query errors fail closed instead of falling back to mock',async()=>{
  await assert.rejects(recommendMidterm({},new SeedMidtermRepository(async()=>{throw Error('private');})),e=>e.status===503&&!e.message.includes('private'));
  const r=await recommendMidterm({},new SeedMidtermRepository(async()=>[]));assert.equal(r.status,'QUESTION');
 });
+
+test("MVP searches owner-confirmed options without treating them as demo prices", async () => {
+  const repo = new SeedMidtermRepository(async (sql) => {
+    assert.match(sql, /p\.source = 'OWNER' AND p\.owner_verified = 1/);
+    return [
+      {
+        cafe_id: "1",
+        menu_id: "2",
+        offer_id: "3",
+        cafe_name: "카페",
+        menu_name: "아메리카노",
+        temperature: "ICE",
+        size: "Regular",
+        price_krw: 3500,
+        source: "OWNER",
+        owner_verified: 1,
+        checked_at: "2026-11-25",
+      },
+    ];
+  });
+  const result = await recommendMidterm({}, repo);
+  assert.equal(result.recommendations[0].source, "OWNER");
+  assert.equal(result.recommendations[0].verified_at, "2026-11-25");
+});

@@ -41,8 +41,33 @@ test('empty results and database failures stay distinct', async () => {
   assert.deepEqual((await searchProducts({},async()=>[])).items,[]);
   await assert.rejects(searchProducts({},async()=>{throw Error('private DB detail');}),
     error => error.status === 503 && !error.message.includes('private'));
-  await assert.rejects(searchProducts({},async()=>[row({source:'OWNER'})]),
+  await assert.rejects(searchProducts({},async()=>[row({source:'COLLECTED'})]),
     error => error.status === 503);
   await assert.rejects(searchProducts({maxPrice:2999},async()=>[row()]),
     error => error.status === 503);
+});
+
+test("owner-confirmed prices remain searchable with their date and provenance", async () => {
+  const result = await searchProducts({}, async (sql) => {
+    assert.match(sql, /p\.source = 'OWNER' AND p\.owner_verified = 1/);
+    return [
+      row({ source: "OWNER", owner_verified: 1, checked_at: "2026-11-25" }),
+    ];
+  });
+  const item = result.items[0];
+  assert.equal(item.matchedMenu.source, "OWNER");
+  assert.equal(item.matchedMenu.isDemo, false);
+  assert.equal(item.matchedMenu.checkedAt, "2026-11-25");
+  assert.ok(item.cafe.tags.includes("점주 확인"));
+  assert.ok(!item.cafe.tags.includes("시연 가격"));
+  assert.match(item.reasons[0], /점주 확인 가격/);
+  for (const invalid of [
+    { owner_verified: 0, checked_at: "2026-11-25" },
+    { owner_verified: 1, checked_at: null },
+  ]) {
+    await assert.rejects(
+      searchProducts({}, async () => [row({ source: "OWNER", ...invalid })]),
+      (e) => e.status === 503
+    );
+  }
 });

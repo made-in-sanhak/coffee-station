@@ -110,6 +110,19 @@ export function parseMenuBoard(value: unknown): MenuCandidate[] {
       row.push(word);
     else rows.push([word]);
   }
+  // General OCR may split a monetary suffix into its own field. Normalize
+  // adjacent tokens before unit detection, menu boundaries, and price columns.
+  for (const row of rows) {
+    row.sort((a,b)=>a.x-b.x);
+    for (let i=1;i<row.length;i++) {
+      if (row[i].name === "원" && /^(?:\d{1,9}|\d{1,3}(?:,\d{3})+|\d{1,3}\.\d{1,2})$/.test(row[i-1].name)) {
+        row[i-1] = {...row[i-1], name: row[i-1].name + "원",
+          confidence: Math.min(row[i-1].confidence,row[i].confidence)};
+        row.splice(i,1);
+        i--;
+      }
+    }
+  }
   const items: MenuCandidate[] = [];
   // Decimal menu prices are often expressed in thousands of won. Convert only
   // when this image states the unit; otherwise preserve a manual-review item.

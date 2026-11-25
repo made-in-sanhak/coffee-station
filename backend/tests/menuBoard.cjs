@@ -374,3 +374,33 @@ test('several independent menus can each have HOT and ICE columns',()=>{
  const items=ocr.parseMenuBoard({images:[{inferResult:'SUCCESS',fields}]});
  assert.deepEqual(items.map(x=>[x.name,x.temperature,x.price]),[['아메리카노','HOT',4000],['아메리카노','ICE',4500],['카페라떼','HOT',5000],['카페라떼','ICE',5500]]);
 });
+
+
+test('attached and separate won tokens produce identical HOT/ICE columns and menu pairs',()=>{
+ const parse=fields=>ocr.parseMenuBoard({images:[{inferResult:'SUCCESS',fields:fields.reverse()}]});
+ for(const header of [false,true]) {
+  const prefix=header?[field('메뉴',0,0),field('HOT',200,0),field('ICE',400,0)]:[];
+  for(const independent of [false,true]) {
+   const label=independent?[field('카페라떼',300,30)]:[];
+   const attached=parse([...prefix,field('아메리카노',0,30),field('4,000원',200,30),...label,field('4,500원',400,30)]);
+   const separate=parse([...prefix,field('아메리카노',0,30),field('4,000',200,30),field('원',260,30),...label,field('4,500',400,30),field('원',460,30)]);
+   assert.deepEqual(separate,attached);
+   assert.ok(!separate.some(item=>item.name==='원'));
+   if(header&&!independent) assert.deepEqual(separate.map(x=>[x.name,x.temperature,x.price]),[['아메리카노','HOT',4000],['아메리카노','ICE',4500]]);
+  }
+ }
+});
+
+test('separate currency preserves per-price won override and explicit thousand unit',()=>{
+ const parse=fields=>ocr.parseMenuBoard({images:[{inferResult:'SUCCESS',fields}]});
+ const attached=parse([field('단위:',0,0),field('1,000원',200,0),field('시럽 추가',0,30),field('50원',200,30),field('라떼',0,60),field('4.5',200,60)]);
+ const separate=parse([field('단위:',0,0),field('1,000',200,0),field('원',260,0),field('시럽 추가',0,30),field('50',200,30),field('원',260,30),field('라떼',0,60),field('4.5',200,60)]);
+ assert.deepEqual(separate,attached);assert.deepEqual(separate.map(x=>x.price),[50,4500]);
+});
+
+test('a low-confidence detached currency token keeps its price in manual review',()=>{
+ const items=ocr.parseMenuBoard({images:[{inferResult:'SUCCESS',fields:[field('라떼',0,30),field('4,500',200,30),field('원',260,30,.3)]}]});
+ assert.equal(items[0].confidence,.3);
+ const diff=menuDifference([{...items[0],size:'Regular',temperature:'HOT'}],[{menuId:'1',name:'라떼',category:'COFFEE',size:'Regular',temperature:'HOT',price:4000,available:true}]);
+ assert.equal(diff.changes[0].price,null);
+});

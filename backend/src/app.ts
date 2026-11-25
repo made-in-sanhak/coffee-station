@@ -11,6 +11,7 @@ import receiptsRouter from './routes/receipts';
 import { errorHandler, notFound } from './middlewares/errorHandler';
 import authRouter, { sessionRouter } from './modules/auth/router';
 import usersRouter from './modules/users/router';
+import ownerMenuBoardRouter from './modules/menuBoard/router';
 
 export const app = express();
 
@@ -19,6 +20,7 @@ export const app = express();
 app.set('trust proxy', 1);
 
 app.use(cors());
+app.use('/api/owner', ownerMenuBoardRouter);
 app.use('/api/receipts', receiptsRouter);
 // Existing photo form: up to three 2 MiB images encoded as base64.
 app.use('/api/reviews', express.json({ limit: '9mb' }));

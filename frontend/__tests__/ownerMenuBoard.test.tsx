@@ -27,16 +27,12 @@ import MenuRegisterDoneScreen from '../src/screens/owner/menuBoard/MenuRegisterD
 import MenuBoardDiffScreen from '../src/screens/owner/menuBoard/MenuBoardDiffScreen';
 
 const mockApi = {
-  requestMenuBoardUpload: jest.fn(),
-  uploadMenuBoardImage: jest.fn(),
   scanMenuBoard: jest.fn(),
   diffMenuBoard: jest.fn(),
   registerMenus: jest.fn(),
   applyMenuDiff: jest.fn(),
 };
 jest.mock('../src/api/endpoints/menuBoard', () => ({
-  requestMenuBoardUpload: (...args: unknown[]) => mockApi.requestMenuBoardUpload(...args),
-  uploadMenuBoardImage: (...args: unknown[]) => mockApi.uploadMenuBoardImage(...args),
   scanMenuBoard: (...args: unknown[]) => mockApi.scanMenuBoard(...args),
   diffMenuBoard: (...args: unknown[]) => mockApi.diffMenuBoard(...args),
   registerMenus: (...args: unknown[]) => mockApi.registerMenus(...args),
@@ -54,7 +50,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 const cafe = { id: 'cafe-1', name: '메가MGC커피 OO역점', address: '서울 중구 세종대로 110' };
-const image = { uri: 'file://board-1.jpg', type: 'image/jpeg', name: 'board-1.jpg' };
+const image = { uri: 'file://board-1.jpg', type: 'image/jpeg', name: 'board-1.jpg', base64: 'test-image' };
 const nav = () => ({
   navigate: jest.fn(),
   replace: jest.fn(),
@@ -188,9 +184,7 @@ test('update capture keeps several photos, hides manual entry and starts reading
   await act(() => tree.unmount());
 });
 
-test('processing uploads each photo with its presigned url, then opens review or diff automatically', async () => {
-  mockApi.requestMenuBoardUpload.mockImplementation(async (_cafeId, picked) => ({ uploadUrl: 'https://s3/put', imageKey: `key/${picked.name}` }));
-  mockApi.uploadMenuBoardImage.mockResolvedValue(undefined);
+test('processing sends photos to the scan or diff API and opens the result', async () => {
   mockApi.scanMenuBoard.mockResolvedValue(mockMenuBoardScan());
   mockApi.diffMenuBoard.mockResolvedValue(mockMenuBoardDiff());
   useMenuBoardStore.getState().addImage(image);
@@ -199,8 +193,7 @@ test('processing uploads each photo with its presigned url, then opens review or
   await act(async () => {
     tree = Renderer.create(<MenuBoardProcessingScreen {...({ navigation, route: route('MenuBoardProcessing') } as any)} />);
   });
-  expect(mockApi.uploadMenuBoardImage).toHaveBeenCalledWith({ uploadUrl: 'https://s3/put', imageKey: 'key/board-1.jpg' }, image);
-  expect(mockApi.scanMenuBoard).toHaveBeenCalledWith('cafe-1', ['key/board-1.jpg']);
+  expect(mockApi.scanMenuBoard).toHaveBeenCalledWith('cafe-1', [image]);
   expect(useMenuBoardStore.getState().scanItems).toHaveLength(7);
   expect(navigation.replace).toHaveBeenCalledWith('MenuBoardReview');
   await act(() => tree.unmount());
@@ -211,15 +204,14 @@ test('processing uploads each photo with its presigned url, then opens review or
   await act(async () => {
     tree = Renderer.create(<MenuBoardProcessingScreen {...({ navigation, route: route('MenuBoardProcessing') } as any)} />);
   });
-  expect(mockApi.diffMenuBoard).toHaveBeenCalledWith('cafe-1', ['key/board-1.jpg']);
+  expect(mockApi.diffMenuBoard).toHaveBeenCalledWith('cafe-1', [image]);
   expect(navigation.replace).toHaveBeenCalledWith('MenuBoardDiff');
   await act(() => tree.unmount());
 });
 
 test('cancelling while reading goes back and never opens the result', async () => {
-  let finishUpload!: (value: unknown) => void;
-  mockApi.requestMenuBoardUpload.mockReturnValue(new Promise(resolve => { finishUpload = resolve; }));
-  mockApi.scanMenuBoard.mockResolvedValue(mockMenuBoardScan());
+  let finishScan!: (value: unknown) => void;
+  mockApi.scanMenuBoard.mockReturnValue(new Promise(resolve => { finishScan = resolve; }));
   useMenuBoardStore.getState().addImage(image);
   const navigation = nav();
   let tree!: Renderer.ReactTestRenderer;
@@ -230,9 +222,9 @@ test('cancelling while reading goes back and never opens the result', async () =
   await act(() => find(tree, 'menu-board-cancel').props.onPress());
   expect(navigation.goBack).toHaveBeenCalled();
   await act(async () => {
-    finishUpload({ uploadUrl: 'x', imageKey: 'k' });
+    finishScan(mockMenuBoardScan());
   });
-  expect(mockApi.scanMenuBoard).not.toHaveBeenCalled();
+  expect(mockApi.scanMenuBoard).toHaveBeenCalledTimes(1);
   expect(navigation.replace).not.toHaveBeenCalled();
   await act(() => tree.unmount());
 });
@@ -490,4 +482,84 @@ test('a new menu missing price and category starts off, explains why and can be 
     expect.objectContaining({ kind: 'NEW', name: '바닐라라떼', category: 'COFFEE', temperature: 'HOT', price: 3600 }),
   ]);
   await act(() => tree.unmount());
+});
+
+test('an uncertain existing price can be filled in and submitted without changing its option identity', async () => {
+  useMenuBoardStore.getState().start('update', cafe);
+  useMenuBoardStore.getState().setDiff({
+    changes: [
+      {
+        kind: 'PRICE_CHANGED',
+        menuId: 'existing-price',
+        name: '카페라떼',
+        category: 'COFFEE',
+        size: 'Regular',
+        temperature: 'HOT',
+        previousPrice: 3000,
+        price: null,
+      },
+    ],
+    unchanged: [],
+  });
+  mockApi.applyMenuDiff.mockResolvedValue({ applied: 1 });
+  const navigation = nav();
+  let tree!: Renderer.ReactTestRenderer;
+  await act(() => {
+    tree = Renderer.create(
+      <MenuBoardDiffScreen
+        {...({ navigation, route: route('MenuBoardDiff') } as any)}
+      />,
+    );
+  });
+  expect(find(tree, 'menu-diff-toggle-0').props.accessibilityState).toEqual({
+    checked: false,
+  });
+  expect(texts(tree)).toContain('가격을 입력해야 반영할 수 있어요.');
+  await act(() => find(tree, 'menu-diff-fix-0').props.onPress());
+  await act(() =>
+    find(tree, 'menu-diff-editor-price', 'onChangeText').props.onChangeText(
+      '3,500',
+    ),
+  );
+  expect(
+    tree.root.findAll(
+      node => node.props.testID === 'menu-diff-editor-category-COFFEE',
+    ),
+  ).toHaveLength(0);
+  await act(() => find(tree, 'menu-diff-editor-done').props.onPress());
+  await act(() => find(tree, 'menu-diff-toggle-0').props.onPress());
+  await act(async () => {
+    await find(tree, 'menu-diff-apply').props.onPress();
+  });
+  expect(mockApi.applyMenuDiff.mock.calls[0][1].changes).toEqual([
+    expect.objectContaining({
+      kind: 'PRICE_CHANGED',
+      menuId: 'existing-price',
+      temperature: 'HOT',
+      size: 'Regular',
+      previousPrice: 3000,
+      price: 3500,
+    }),
+  ]);
+  await act(() => tree.unmount());
+});
+
+
+test('an unreadable option can target an existing size and temperature for a price update', async () => {
+ useMenuBoardStore.getState().start('update',cafe);
+ const target={menuId:'old-latte',name:'카페라떼',category:'COFFEE' as const,size:'Large',temperature:'HOT' as const,price:4000};
+ useMenuBoardStore.getState().setDiff({changes:[{kind:'NEW',menuId:null,name:'카페라떼',category:'COFFEE',size:'Regular',temperature:null,previousPrice:null,price:4500,existingOptions:[target]}],unchanged:[target]});
+ mockApi.applyMenuDiff.mockResolvedValue({applied:1});
+ const navigation=nav();let tree!:Renderer.ReactTestRenderer;
+ await act(()=>{tree=Renderer.create(<MenuBoardDiffScreen {...({navigation,route:route('MenuBoardDiff')} as any)} />);});
+ await act(()=>find(tree,'menu-diff-existing-0-old-latte').props.onPress());
+ expect(texts(tree)).not.toContain('그대로인 메뉴 1개는 바뀌지 않아요');
+ await act(async()=>{await find(tree,'menu-diff-apply').props.onPress();});
+ expect(mockApi.applyMenuDiff.mock.calls[0][1].changes).toEqual([expect.objectContaining({kind:'PRICE_CHANGED',menuId:'old-latte',size:'Large',temperature:'HOT',previousPrice:4000,price:4500})]);
+ await act(()=>tree.unmount());
+});
+
+
+test('known temperature with missing size stays off until the owner selects a size', () => {
+ expect(defaultDiffEnabled({kind:'NEW',menuId:null,name:'라떼',category:'COFFEE',size:'Regular',temperature:'HOT',previousPrice:null,price:4500,existingOptions:[{menuId:'large',name:'라떼',category:'COFFEE',size:'Large',temperature:'HOT',price:4000}]})).toBe(false);
 });

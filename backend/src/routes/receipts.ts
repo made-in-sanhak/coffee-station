@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, open } from 'node:fs/promises';
 import path from 'node:path';
+import { ocrUsageDirectory } from '../config/ocrUsage';
 import { json, Router } from 'express';
 import { AppError } from '../common/AppError';
 import { ok } from '../common/response';
@@ -91,7 +92,7 @@ router.post('/scan', (req, res, next) => {
     if (error) { next(error); return; }
     void scanReceipt(req.body, {
       url, secret,
-      budget: { month, limit, directory: path.resolve(__dirname, '../../artifacts/clova-quota') },
+      budget: { month, limit, directory: ocrUsageDirectory() },
     }).then(result => {
       res.set('Cache-Control', 'no-store').json(ok(result));
     }).catch(next);

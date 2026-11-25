@@ -57,3 +57,24 @@ test('photo uploads disable table extraction and concurrent scans share one atte
     await rmdir(directory);
   }
 });
+
+
+test('receipt and menu OCR share the same directory and monthly budget',async()=>{
+ const {env}=require('../dist/config/env');const {readMenuPhotos,menuPhotos}=require('../dist/modules/menuBoard/ocr');
+ const {ocrUsageDirectory}=require('../dist/config/ocrUsage');
+ const directory=await mkdtemp(path.join(os.tmpdir(),'coffee-shared-ocr-'));
+ const month=new Date(Date.now()+9*3600000).toISOString().slice(0,7);
+ const saved={nodeEnv:env.nodeEnv,host:env.host};
+ const settings={CLOVA_OCR_USAGE_DIR:directory,CLOVA_OCR_BUDGET_MONTH:month,CLOVA_OCR_CALL_LIMIT:'1',CLOVA_OCR_URL:'https://test.apigw.ntruss.com/general',CLOVA_OCR_SECRET:'test-only'};
+ const previous=Object.fromEntries(Object.keys(settings).map(k=>[k,process.env[k]]));
+ try {
+  Object.assign(process.env,settings);env.nodeEnv='development';env.host='127.0.0.1';
+  assert.equal(ocrUsageDirectory(),directory);
+  const body={type:'image/jpeg',base64:Buffer.from([255,216,255,217]).toString('base64')};
+  await scanReceipt(body,{url:new URL(settings.CLOVA_OCR_URL),secret:'test-only',budget:{directory:ocrUsageDirectory(),month,limit:1}},async()=>Response.json({images:[]}));
+  await assert.rejects(readMenuPhotos(menuPhotos([body])),{status:429});
+ } finally {
+  Object.assign(env,saved);for(const [k,v]of Object.entries(previous)){if(v===undefined)delete process.env[k];else process.env[k]=v;}
+  await rm(path.join(directory,month,'1'),{force:true});await rmdir(path.join(directory,month));await rmdir(directory);
+ }
+});

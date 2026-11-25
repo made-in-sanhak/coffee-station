@@ -5,7 +5,7 @@ import type { MenuBoardImage } from '../../../types/menuBoard';
 export async function pickMenuBoardImage(camera: boolean): Promise<MenuBoardImage | null> {
   try {
     const picked = await native.pickImage(camera);
-    return { uri: picked.uri, type: picked.type, name: picked.name };
+    return picked;
   } catch (cause) {
     if ((cause as { code?: string })?.code === 'E_CANCELLED') return null;
     throw cause;

@@ -255,7 +255,7 @@ export function diffItemMissing(item: Pick<MenuDiffItem, 'kind' | 'name' | 'cate
 // 변경 사항 확인: 기본으로 켜는 것은 필요한 정보가 다 있는 가격 변경과, 온도·분류·가격이 다 있는 새 메뉴뿐입니다.
 // "메뉴판에 없음", 온도를 모르는 새 메뉴, 분류·가격이 빠진 새 메뉴는 기본으로 끕니다.
 export const defaultDiffEnabled = (item: MenuDiffItem) =>
-  (item.kind === 'PRICE_CHANGED' || (item.kind === 'NEW' && item.temperature !== null)) &&
+  (item.kind === 'PRICE_CHANGED' || (item.kind === 'NEW' && item.temperature !== null && !item.existingOptions?.length)) &&
   diffItemMissing(item) === null;
 
 const describeOption = (item: Pick<MenuDiffItem, 'name' | 'size' | 'temperature'>) =>

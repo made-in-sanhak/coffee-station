@@ -48,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [features, migration, startup]
+        mode: [features, migration, startup, owner-menu]
     services:
       mysql:
         image: mysql:8.4
@@ -84,7 +84,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - name: Prepare isolated feature database
-        if: matrix.mode == 'features'
+        if: matrix.mode == 'features' || matrix.mode == 'owner-menu'
         run: node tests/fixtures/setupCommunity.cjs
       - name: HTTP and MySQL feature tests
         if: matrix.mode == 'features'
@@ -97,6 +97,11 @@ jobs:
           MIGRATION_TEST_DB: '1'
         run: node --test tests/authMigration.cjs
 
+      - name: Owner menu OCR and recommendation regression tests
+        if: matrix.mode == 'owner-menu'
+        env:
+          MENU_BOARD_TEST_DB: '1'
+        run: node --test tests/menuBoard.cjs
       - name: Concurrent missing DB startup, MVP read-only guard and backup restore
         if: matrix.mode == 'startup'
         env:

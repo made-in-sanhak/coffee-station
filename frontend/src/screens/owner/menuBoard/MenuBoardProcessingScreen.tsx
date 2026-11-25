@@ -3,9 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Check, Clock, Sparkles } from 'lucide-react-native';
 import {
   diffMenuBoard,
-  requestMenuBoardUpload,
   scanMenuBoard,
-  uploadMenuBoardImage,
 } from '../../../api/endpoints/menuBoard';
 import { Button, Screen, tokens } from '../../../app/ui';
 import type { RootStackScreenProps } from '../../../navigation/types';
@@ -36,23 +34,14 @@ export default function MenuBoardProcessingScreen({
     try {
       if (!cafe) throw new Error('매장 정보를 찾지 못했어요. 처음부터 다시 시도해 주세요.');
       if (selected.length === 0) throw new Error('메뉴판 사진을 먼저 골라 주세요.');
-      const imageKeys: string[] = [];
-      for (const image of selected) {
-        const ticket = await requestMenuBoardUpload(cafe.id, image);
-        if (cancelled.current) return;
-        await uploadMenuBoardImage(ticket, image);
-        if (cancelled.current) return;
-        imageKeys.push(ticket.imageKey);
-      }
-      setStep(1);
       if (mode === 'update') {
-        const diff = await diffMenuBoard(cafe.id, imageKeys);
+        const diff = await diffMenuBoard(cafe.id, selected);
         if (cancelled.current) return;
         setStep(2);
         useMenuBoardStore.getState().setDiff(diff);
         navigation.replace('MenuBoardDiff');
       } else {
-        const result = await scanMenuBoard(cafe.id, imageKeys);
+        const result = await scanMenuBoard(cafe.id, selected);
         if (cancelled.current) return;
         setStep(2);
         useMenuBoardStore.getState().setScanItems(result.items);

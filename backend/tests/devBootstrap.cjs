@@ -45,7 +45,9 @@ test('a failed development setup never opens the HTTP server', async () => {
   }
 });
 
-test('both MVP modes start without DB preparation even with an inherited true flag', async () => {
+test('both MVP modes start without DB preparation even with an inherited true flag', async t => {
+  // Capture rapid startup logs so Node 22's test IPC receives only test events.
+  t.mock.method(console, 'log', () => {});
   const { mvpSettings } = require('../scripts/start-mvp.cjs');
   const { env, loadSettings } = require('../dist/config/env');
   const module = require('../scripts/prepare-development-db.cjs');
@@ -80,6 +82,7 @@ test(
   'fresh dev server is ready with all cafe/menu/review data; restarts preserve user content',
   { skip: !process.env.DEV_BOOTSTRAP_TEST },
   async t => {
+    t.mock.method(console, 'log', () => {});
     const mysql = require('mysql2/promise'),
       { env } = require('../dist/config/env');
     assert.match(env.db.name, /^coffee_features_test_\d+$/);

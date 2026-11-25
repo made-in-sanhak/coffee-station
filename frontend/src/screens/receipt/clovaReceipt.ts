@@ -76,19 +76,15 @@ const datePattern =
   /\b(20\d{2})\s*[-./]\s*(\d{1,2})\s*[-./]\s*(\d{1,2})\s+(\d{1,2})\s*:\s*(\d{2})(?:\s*:\s*(\d{2}))?/;
 const totalPattern =
   /^(?:합\s*계(?:\s*금\s*액)?|총\s*(?:결\s*제\s*)?금\s*액|결\s*제\s*금\s*액|받\s*을\s*금\s*액)\s*[:：]?\s*/;
+const paymentTotalPattern = /^(?:총\s*)?결\s*제\s*금\s*액|^받\s*을\s*금\s*액/;
+const itemHeadingPattern = /상품명|품목명|메뉴명/;
 const won = (value: string): number | undefined => {
   if (!/^(?:\d{1,9}|\d{1,3}(?:,\d{3}){1,2})\s*원?$/.test(value))
     return undefined;
   return Number(value.replace(/[,\s원]/g, ''));
 };
 
-function readItems(rows: Word[][], lines: string[]): ReceiptItem[] {
-  const header = lines.findIndex(
-    line =>
-      /상품명|품목명|메뉴명/.test(line) &&
-      /수량/.test(line) &&
-      /금액/.test(line),
-  );
+function readItems(rows: Word[][], lines: string[], header: number): ReceiptItem[] {
   if (header < 0) return [];
   const headings = rows[header];
   const quantityColumn = headings.findIndex(word => word.text === '수량');
@@ -137,7 +133,6 @@ function readItems(rows: Word[][], lines: string[]): ReceiptItem[] {
       !Number.isInteger(quantity) ||
       quantity < 1 ||
       quantity > 99 ||
-      amount <= 0 ||
       amount % quantity !== 0
     )
       continue;
@@ -182,24 +177,31 @@ export function clovaReceiptDraft(value: unknown): ReceiptDraft {
       purchasedAt = time.toISOString();
     }
   }
+  const firstItemHeading = lines.findIndex(line => itemHeadingPattern.test(line));
+  const itemHeader = lines.findIndex(
+    line => itemHeadingPattern.test(line) && /수량/.test(line) && /금액/.test(line),
+  );
   const storeName =
     lines
-      .slice(0, 12)
+      .slice(0, firstItemHeading === -1 ? 12 : Math.min(12, firstItemHeading))
       .find(
         line =>
           line.length <= 100 &&
           /커피|카페|coffee|caf[eé]|(?:\p{L}{2,}점)(?:\s|$)/iu.test(line) &&
           !/사업자|주소|상품명|https?:|^\[/.test(line),
       ) ?? '';
-  const items = readItems(rows, lines);
-  const total = lines.flatMap((line, index) => {
+  const items = readItems(rows, lines, itemHeader);
+  const totals = lines.flatMap((line, index) => {
     const label = line.match(totalPattern);
     if (!label) return [];
     const amount = won(
       line.slice(label[0].length).trim() || lines[index + 1] || '',
     );
-    return amount === undefined ? [] : [amount];
-  })[0];
+    return amount === undefined
+      ? []
+      : [{ amount, isPayment: paymentTotalPattern.test(line) }];
+  });
+  const total = totals.find(entry => entry.isPayment)?.amount ?? totals[0]?.amount;
   if (!storeName && !purchasedAt && !items.length && total === undefined) {
     throw new Error(
       '영수증에서 매장명, 결제 일시, 상품 또는 금액을 찾지 못했어요.',
@@ -209,7 +211,7 @@ export function clovaReceiptDraft(value: unknown): ReceiptDraft {
     storeName,
     purchasedAt,
     items,
-    total: total ?? 0,
+    total: total ?? null,
     scanned: true,
     verified: false,
   };

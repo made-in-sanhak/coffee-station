@@ -85,6 +85,38 @@ test('keeps unreadable purchase fields blank while preserving the OCR total', ()
   expect(receiptDraftToForm(result).purchasedAt).toBe('');
 });
 
+test('keeps free items and does not use a product row as the store name', () => {
+  const fields = [
+    word('STARBUCKS', 0, 0),
+    word('상품명', 0, 20),
+    word('수량', 200, 20),
+    word('금액', 360, 20),
+    word('카페라떼', 0, 40),
+    word('1', 200, 40),
+    word('2,000', 360, 40),
+    word('무료 아메리카노', 0, 60),
+    word('1', 200, 60),
+    word('0', 360, 60),
+  ];
+  const result = clovaReceiptDraft({ images: [{ fields }] });
+  expect(result.storeName).toBe('');
+  expect(result.total).toBeNull();
+  expect(result.items).toMatchObject([
+    { menuName: '카페라떼', quantity: 1, unitPrice: 2000 },
+    { menuName: '무료 아메리카노', quantity: 1, unitPrice: 0 },
+  ]);
+  expect(receiptDraftToForm(result).items[1].amount).toBe('0');
+});
+
+test('prefers an explicit zero payment over the item subtotal', () => {
+  const fields = [
+    word('테스트 카페', 0, 0),
+    word('합계 2,000', 0, 20),
+    word('결제금액 0원', 0, 40),
+  ];
+  expect(clovaReceiptDraft({ images: [{ fields }] }).total).toBe(0);
+});
+
 test('rejects a failed OCR result', () => {
   expect(() =>
     clovaReceiptDraft({ images: [{ inferResult: 'FAILURE', fields: [] }] }),

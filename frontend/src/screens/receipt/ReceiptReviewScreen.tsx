@@ -53,7 +53,7 @@ export default function ReceiptReviewScreen({
   );
   const totalMismatch =
     !!(draft.scanned || draft.id || draft.sample) &&
-    draft.total > 0 &&
+    draft.total !== null &&
     draft.total !== amount;
   const needsAmountConfirmation =
     totalMismatch && confirmedItems !== form.items;

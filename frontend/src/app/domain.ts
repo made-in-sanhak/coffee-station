@@ -109,7 +109,7 @@ export interface ReceiptDraft {
   imageUri?: string;
   storeName: string;
   purchasedAt: string;
-  total: number;
+  total: number | null;
   items: ReceiptItem[];
   verified: boolean;
 }

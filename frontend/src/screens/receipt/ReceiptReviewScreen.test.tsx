@@ -59,11 +59,11 @@ test('an OCR sample cannot be saved as a purchase', async () => {
   await act(() => tree.unmount());
 });
 
-test('saving an OCR total mismatch requires confirmation again after an item changes', async () => {
+test.each([3000, 0])('OCR total %i requires confirmation again after an item changes', async total => {
   const { tree, replace } = await render({
     ...draft,
     scanned: true,
-    total: 3000,
+    total,
   });
   const save = () => control(tree, 'receipt-save');
   const confirm = () => control(tree, 'receipt-confirm-total');
@@ -87,6 +87,13 @@ test('saving an OCR total mismatch requires confirmation again after an item cha
     expect.objectContaining({ menuName: '아이스 아메리카노', total: 2000 }),
   ]);
   expect(replace).toHaveBeenCalledWith('Calendar');
+  await act(() => tree.unmount());
+});
+
+test('an unreadable OCR total does not require confirmation', async () => {
+  const { tree } = await render({ ...draft, scanned: true, total: null });
+  expect(control(tree, 'receipt-confirm-total')).toBeUndefined();
+  expect(control(tree, 'receipt-save').props.disabled).toBe(false);
   await act(() => tree.unmount());
 });
 

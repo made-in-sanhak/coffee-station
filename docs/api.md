@@ -64,3 +64,19 @@ Gemini 호출은 응답 본문 수신을 포함해 10초로 제한한다. 추천
 
 코드·redirectUri만 보내던 이전 클라이언트는 state/flowToken 방식으로 업데이트해야 한다.
 이전 JWT/세션은 인증 DB 통합 이후 재로그인한다. 상세 DB 이전은 local-login-integration.md를 참조한다.
+
+# 점주 메뉴판 OCR
+
+점주 메뉴판은 `cafes.owner_id`로 실제 로그인 계정에 연결된 매장만 조회·변경할 수 있습니다. 초대 코드 발급·검증은 이 기능의 범위 밖입니다. 개발 앱에서 실제 API를 시험하려면 `USE_MOCK_API=false`가 반영된 번들과 이미 연결된 계정을 사용합니다.
+
+| API | 동작 |
+| --- | --- |
+| `GET /api/owner/me` | 로그인 계정에 연결된 첫 매장과 등록 메뉴 수 조회 |
+| `POST /api/owner/menu-board/scan` | `{ cafeId, images: [{ type, base64 }] }`를 받아 OCR 후보 반환 |
+| `POST /api/owner/menu-board/diff` | 같은 사진 요청으로 등록 메뉴와 비교하고 변경 후보 반환 |
+| `POST /api/owner/menus/bulk` | 확인 화면에서 선택한 메뉴 옵션 일괄 등록 |
+| `POST /api/owner/menus/apply-diff` | 선택한 가격 변경, 새 메뉴, 판매 중지를 한 트랜잭션에서 반영 |
+
+OCR은 JPEG/PNG 1~5장, 장당 10MiB·합계 20MiB까지 받습니다. 원본은 서버에 저장하지 않습니다. 메뉴명·가격을 위치 기준으로 추출하며 분류·사이즈·온도는 확인 화면에서 수정할 수 있습니다. 읽지 못한 사진이 있으면 갱신 후보를 만들지 않습니다. 온도 미확인 옵션은 가격 관리에 남지만 HOT/ICE로 필터링한 가격 비교에는 나타나지 않습니다.
+
+실제 OCR 호출은 `NODE_ENV=development`, `HOST=127.0.0.1`에서만 열립니다. 기존 `CLOVA_OCR_URL`, `CLOVA_OCR_SECRET`, 한국 시간 기준의 `CLOVA_OCR_BUDGET_MONTH=YYYY-MM`, 확인한 `CLOVA_OCR_CALL_LIMIT`(기본 0), 영수증 OCR과 동일한 호출 기록 폴더의 절대 경로 `MENU_BOARD_OCR_USAGE_DIR`를 설정합니다. 영수증 브랜치의 기록 폴더는 `backend/artifacts/clova-quota`입니다. 두 경로에서 같은 월·한도·기록 폴더를 사용해야 한도를 공유합니다. 사진 한 장당 한 번 예약하고, 외부로 보내기 시작한 호출은 재시도하지 않습니다.

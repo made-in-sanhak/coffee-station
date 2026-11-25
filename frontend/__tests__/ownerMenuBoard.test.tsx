@@ -27,16 +27,12 @@ import MenuRegisterDoneScreen from '../src/screens/owner/menuBoard/MenuRegisterD
 import MenuBoardDiffScreen from '../src/screens/owner/menuBoard/MenuBoardDiffScreen';
 
 const mockApi = {
-  requestMenuBoardUpload: jest.fn(),
-  uploadMenuBoardImage: jest.fn(),
   scanMenuBoard: jest.fn(),
   diffMenuBoard: jest.fn(),
   registerMenus: jest.fn(),
   applyMenuDiff: jest.fn(),
 };
 jest.mock('../src/api/endpoints/menuBoard', () => ({
-  requestMenuBoardUpload: (...args: unknown[]) => mockApi.requestMenuBoardUpload(...args),
-  uploadMenuBoardImage: (...args: unknown[]) => mockApi.uploadMenuBoardImage(...args),
   scanMenuBoard: (...args: unknown[]) => mockApi.scanMenuBoard(...args),
   diffMenuBoard: (...args: unknown[]) => mockApi.diffMenuBoard(...args),
   registerMenus: (...args: unknown[]) => mockApi.registerMenus(...args),
@@ -54,7 +50,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 const cafe = { id: 'cafe-1', name: '메가MGC커피 OO역점', address: '서울 중구 세종대로 110' };
-const image = { uri: 'file://board-1.jpg', type: 'image/jpeg', name: 'board-1.jpg' };
+const image = { uri: 'file://board-1.jpg', type: 'image/jpeg', name: 'board-1.jpg', base64: 'test-image' };
 const nav = () => ({
   navigate: jest.fn(),
   replace: jest.fn(),
@@ -188,9 +184,7 @@ test('update capture keeps several photos, hides manual entry and starts reading
   await act(() => tree.unmount());
 });
 
-test('processing uploads each photo with its presigned url, then opens review or diff automatically', async () => {
-  mockApi.requestMenuBoardUpload.mockImplementation(async (_cafeId, picked) => ({ uploadUrl: 'https://s3/put', imageKey: `key/${picked.name}` }));
-  mockApi.uploadMenuBoardImage.mockResolvedValue(undefined);
+test('processing sends photos to the scan or diff API and opens the result', async () => {
   mockApi.scanMenuBoard.mockResolvedValue(mockMenuBoardScan());
   mockApi.diffMenuBoard.mockResolvedValue(mockMenuBoardDiff());
   useMenuBoardStore.getState().addImage(image);
@@ -199,8 +193,7 @@ test('processing uploads each photo with its presigned url, then opens review or
   await act(async () => {
     tree = Renderer.create(<MenuBoardProcessingScreen {...({ navigation, route: route('MenuBoardProcessing') } as any)} />);
   });
-  expect(mockApi.uploadMenuBoardImage).toHaveBeenCalledWith({ uploadUrl: 'https://s3/put', imageKey: 'key/board-1.jpg' }, image);
-  expect(mockApi.scanMenuBoard).toHaveBeenCalledWith('cafe-1', ['key/board-1.jpg']);
+  expect(mockApi.scanMenuBoard).toHaveBeenCalledWith('cafe-1', [image]);
   expect(useMenuBoardStore.getState().scanItems).toHaveLength(7);
   expect(navigation.replace).toHaveBeenCalledWith('MenuBoardReview');
   await act(() => tree.unmount());
@@ -211,15 +204,14 @@ test('processing uploads each photo with its presigned url, then opens review or
   await act(async () => {
     tree = Renderer.create(<MenuBoardProcessingScreen {...({ navigation, route: route('MenuBoardProcessing') } as any)} />);
   });
-  expect(mockApi.diffMenuBoard).toHaveBeenCalledWith('cafe-1', ['key/board-1.jpg']);
+  expect(mockApi.diffMenuBoard).toHaveBeenCalledWith('cafe-1', [image]);
   expect(navigation.replace).toHaveBeenCalledWith('MenuBoardDiff');
   await act(() => tree.unmount());
 });
 
 test('cancelling while reading goes back and never opens the result', async () => {
-  let finishUpload!: (value: unknown) => void;
-  mockApi.requestMenuBoardUpload.mockReturnValue(new Promise(resolve => { finishUpload = resolve; }));
-  mockApi.scanMenuBoard.mockResolvedValue(mockMenuBoardScan());
+  let finishScan!: (value: unknown) => void;
+  mockApi.scanMenuBoard.mockReturnValue(new Promise(resolve => { finishScan = resolve; }));
   useMenuBoardStore.getState().addImage(image);
   const navigation = nav();
   let tree!: Renderer.ReactTestRenderer;
@@ -230,9 +222,9 @@ test('cancelling while reading goes back and never opens the result', async () =
   await act(() => find(tree, 'menu-board-cancel').props.onPress());
   expect(navigation.goBack).toHaveBeenCalled();
   await act(async () => {
-    finishUpload({ uploadUrl: 'x', imageKey: 'k' });
+    finishScan(mockMenuBoardScan());
   });
-  expect(mockApi.scanMenuBoard).not.toHaveBeenCalled();
+  expect(mockApi.scanMenuBoard).toHaveBeenCalledTimes(1);
   expect(navigation.replace).not.toHaveBeenCalled();
   await act(() => tree.unmount());
 });

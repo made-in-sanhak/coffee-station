@@ -491,7 +491,7 @@ export default function MapScreen({ navigation }: RootStackScreenProps<'Map'>) {
                             <View style={styles.badge}>
                               <Text style={styles.badgeText}>DT</Text>
                             </View>
-                          ) : cafe.verified ? (
+                          ) : option?.source === 'OWNER' || cafe.verified ? (
                             <View style={styles.badge}>
                               <Text style={styles.badgeText}>점주 확인</Text>
                             </View>

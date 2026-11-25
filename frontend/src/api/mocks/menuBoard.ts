@@ -2,7 +2,6 @@ import type {
   MenuBoardScanResult,
   MenuBulkItem,
   MenuDiffResult,
-  MenuBoardUploadTicket,
 } from '../../types/menuBoard';
 import {
   diffMenuOptions,
@@ -46,12 +45,6 @@ const MOCK_UPDATED_BOARD: MenuBoardScanResult['items'] = [
 
 export function mockMenuBoardDiff(): MenuDiffResult {
   return diffMenuOptions(MOCK_REGISTERED, MOCK_UPDATED_BOARD);
-}
-
-let uploadCount = 0;
-export function mockUploadTicket(): MenuBoardUploadTicket {
-  uploadCount += 1;
-  return { uploadUrl: 'mock://upload', imageKey: `mock/menu-board/${uploadCount}.jpg` };
 }
 
 export function mockRegisterMenus(items: MenuBulkItem[]) {

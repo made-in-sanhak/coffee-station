@@ -52,6 +52,51 @@ beforeEach(() => {
   useSessionStore.setState({ user: null, accessToken: null });
 });
 
+test('an OCR sample cannot be saved as a purchase', async () => {
+  const { tree } = await render({ ...draft, sample: true });
+  expect(control(tree, 'receipt-save')).toBeUndefined();
+  expect(control(tree, 'receipt-save-local')).toBeUndefined();
+  await act(() => tree.unmount());
+});
+
+test.each([3000, 0])('OCR total %i requires confirmation again after an item changes', async total => {
+  const { tree, replace } = await render({
+    ...draft,
+    scanned: true,
+    total,
+  });
+  const save = () => control(tree, 'receipt-save');
+  const confirm = () => control(tree, 'receipt-confirm-total');
+
+  expect(save().props.disabled).toBe(true);
+  await act(async () => save().props.onPress());
+  expect(usePersonalStore.getState().purchases).toEqual([]);
+
+  await act(() => confirm().props.onPress());
+  expect(save().props.disabled).toBe(false);
+  await act(() => control(tree, 'receipt-edit-item-0').props.onPress());
+  await act(() =>
+    control(tree, 'receipt-menu-field').props.onChangeText('아이스 아메리카노'),
+  );
+  await act(() => control(tree, 'receipt-editor-done').props.onPress());
+  expect(save().props.disabled).toBe(true);
+
+  await act(() => confirm().props.onPress());
+  await act(async () => save().props.onPress());
+  expect(usePersonalStore.getState().purchases).toEqual([
+    expect.objectContaining({ menuName: '아이스 아메리카노', total: 2000 }),
+  ]);
+  expect(replace).toHaveBeenCalledWith('Calendar');
+  await act(() => tree.unmount());
+});
+
+test('an unreadable OCR total does not require confirmation', async () => {
+  const { tree } = await render({ ...draft, scanned: true, total: null });
+  expect(control(tree, 'receipt-confirm-total')).toBeUndefined();
+  expect(control(tree, 'receipt-save').props.disabled).toBe(false);
+  await act(() => tree.unmount());
+});
+
 test('anonymous save persists personal manual purchase without fabricated verification or caffeine', async () => {
   const { tree, replace } = await render();
   await act(async () => control(tree, 'receipt-save').props.onPress());

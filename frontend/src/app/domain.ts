@@ -103,11 +103,13 @@ export interface ReceiptItem {
   matchedMenuId?: Id;
 }
 export interface ReceiptDraft {
+  scanned?: true;
+  sample?: true;
   id?: Id;
   imageUri?: string;
   storeName: string;
   purchasedAt: string;
-  total: number;
+  total: number | null;
   items: ReceiptItem[];
   verified: boolean;
 }

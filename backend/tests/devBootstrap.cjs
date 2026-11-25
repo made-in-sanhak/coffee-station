@@ -44,10 +44,42 @@ test('a failed development setup never opens the HTTP server', async () => {
     app.listen = originalListen;
   }
 });
+
+test('both MVP modes start without DB preparation even with an inherited true flag', async () => {
+  const { mvpSettings } = require('../scripts/start-mvp.cjs');
+  const { env, loadSettings } = require('../dist/config/env');
+  const module = require('../scripts/prepare-development-db.cjs');
+  const original = module.prepareDevelopmentDatabase;
+  const saved = { ...env };
+  let prepared = 0;
+  try {
+    module.prepareDevelopmentDatabase = async () => {
+      prepared++;
+      throw new Error('MVP must not modify its database');
+    };
+    for (const mode of ['mock', 'mysql-seed']) {
+      for (const flag of [undefined, 'false', 'true']) {
+        Object.assign(
+          env,
+          loadSettings(mvpSettings(mode, { DEV_DB_AUTO_SETUP: flag })),
+          { port: 0, host: '127.0.0.1' },
+        );
+        const server = await require('../dist/server').startServer();
+        await new Promise(resolve => server.close(resolve));
+        assert.equal(env.devDbAutoSetup, false);
+        assert.equal(env.catalogMode, mode);
+      }
+    }
+    assert.equal(prepared, 0);
+  } finally {
+    module.prepareDevelopmentDatabase = original;
+    Object.assign(env, saved);
+  }
+});
 test(
   'fresh dev server is ready with all cafe/menu/review data; restarts preserve user content',
   { skip: !process.env.DEV_BOOTSTRAP_TEST },
-  async () => {
+  async t => {
     const mysql = require('mysql2/promise'),
       { env } = require('../dist/config/env');
     assert.match(env.db.name, /^coffee_features_test_\d+$/);
@@ -66,7 +98,7 @@ test(
     assert.equal(initial.length, 0);
     const saved = { ...env },
       serverModule = require('../dist/server');
-    let server;
+    let server, concurrentServer;
     try {
       env.nodeEnv = 'development';
       env.devDbAutoSetup = true;
@@ -74,7 +106,67 @@ test(
       env.port = 0;
       env.host = '127.0.0.1';
       env.catalogMode = 'mysql-seed';
-      server = await serverModule.startServer();
+      // Only this validated EMPTY disposable test DB may be dropped. Both
+      // callers must see it missing before either starts CREATE DATABASE.
+      await conn.query('DROP DATABASE ' + mysql.escapeId(database));
+      const createConnection = mysql.createConnection.bind(mysql);
+      let missing = 0,
+        release;
+      const bothMissing = new Promise(resolve => {
+        release = resolve;
+      });
+      const connectionMock = t.mock.method(
+        mysql,
+        'createConnection',
+        async options => {
+          try {
+            return await createConnection(options);
+          } catch (error) {
+            if (
+              options.database === database &&
+              error.code === 'ER_BAD_DB_ERROR'
+            ) {
+              if (++missing === 2) release();
+              let timer;
+              try {
+                await Promise.race([
+                  bothMissing,
+                  new Promise((_, reject) => {
+                    timer = setTimeout(
+                      () =>
+                        reject(
+                          new Error('Concurrent missing DB barrier timed out'),
+                        ),
+                      10000,
+                    );
+                  }),
+                ]);
+              } finally {
+                clearTimeout(timer);
+              }
+            }
+            throw error;
+          }
+        },
+      );
+      try {
+        const starts = await Promise.allSettled([
+          serverModule.startServer(),
+          serverModule.startServer(),
+        ]);
+        [server, concurrentServer] = starts.map(result =>
+          result.status === 'fulfilled' ? result.value : undefined,
+        );
+        for (const result of starts)
+          if (result.status === 'rejected') throw result.reason;
+        assert.equal(missing, 2);
+      } finally {
+        connectionMock.mock.restore();
+      }
+      await conn.changeUser({ database });
+      concurrentServer.closeAllConnections();
+      await new Promise(resolve => concurrentServer.close(resolve));
+      concurrentServer = undefined;
       const url = 'http://127.0.0.1:' + server.address().port;
       const health = await (await fetch(url + '/health')).json();
       assert.equal(health.data.db, 'ok');
@@ -162,6 +254,10 @@ test(
       );
       assert.deepEqual(image[0].image_data, Buffer.from([0, 255, 1]));
     } finally {
+      if (concurrentServer) {
+        concurrentServer.closeAllConnections();
+        await new Promise(resolve => concurrentServer.close(resolve));
+      }
       if (server) {
         server.closeAllConnections();
         await new Promise(r => server.close(r));

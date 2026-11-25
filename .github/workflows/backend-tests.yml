@@ -97,7 +97,7 @@ jobs:
           MIGRATION_TEST_DB: '1'
         run: node --test tests/authMigration.cjs
 
-      - name: Fresh startup, repeat run and backup restore
+      - name: Concurrent missing DB startup, MVP read-only guard and backup restore
         if: matrix.mode == 'startup'
         env:
           DEV_BOOTSTRAP_TEST: '1'

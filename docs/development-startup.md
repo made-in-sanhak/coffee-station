@@ -45,7 +45,7 @@ Docker 실행에 관리자 승인이나 설치가 필요한 환경은 직접 해
 - 적용 버전은 app_migrations에 기록하며 초기 가격/리뷰 시드는 파일 내용 버전으로 구분한다.
 - 없는 조합만 추가하고 기존 OWNER 가격·리뷰·회원·좌표는 덮어쓰지 않는다.
 - 초기 seed의 브랜드 이름을 중복 제거하여 빈 DB에서도 브랜드가 중복 생성되지 않는다.
-- DB 준비 잠금으로 중복 실행을 직렬화한다.
+- DB가 아직 없어도 동시 생성은 안전하게 처리하고, 생성 후 준비 잠금으로 스키마·시드 적용을 직렬화한다.
 - 기존 DB에 적용할 단계가 있으면 .local/db-backups에 SQL 백업을 만든다. 백업 실패 시 적용하지 않는다.
 - SQL 백업은 사진 바이너리와 원래 날짜를 포함하며 .local은 Git에서 제외한다.
 - 005 회원 이전의 적용/재실행 규칙은 local-login-integration.md를 참고한다.
@@ -60,7 +60,8 @@ Docker 실행에 관리자 승인이나 설치가 필요한 환경은 직접 해
 - DEV_DB_AUTO_SETUP=false: src/server.ts에서 자동 DB 적용을 끈다.
 - DEV_SEED_HAENGSIN=false: 테이블·인증 이전만 준비하고 행신 생성 데이터를 넣지 않는다.
 - 자동 준비는 development 및 로컬 DB 호스트에 한정한다. production에서는 실행하지 않는다.
-- 모의 데이터만 필요하면 backend에서 npm run dev:mvp를 사용한다. Docker/DB 자동 준비를 생략한다.
+- backend의 npm run dev:mvp와 npm run dev:mvp:db는 Docker/DB 자동 준비를 실행하지 않는다. 두 MVP 모드는 DEV_DB_AUTO_SETUP 값과 무관하게 기존 조회 동작을 유지한다.
+- dev:mvp:db는 미리 적용한 DB를 조회하며 SELECT 전용 계정도 사용할 수 있다. DB 준비가 필요하면 일반 npm run dev를 쓰거나 별도 준비 절차를 먼저 실행한다.
 - 이미 사용하는 MySQL을 연결하려면 기존 .env의 DB_HOST/PORT/NAME/USER/PASSWORD를 유지한다.
 - 새 Docker DB는 프로젝트 경로별 이름의 Compose 프로젝트·볼륨 및 127.0.0.1 포트 바인딩을 사용한다.
 

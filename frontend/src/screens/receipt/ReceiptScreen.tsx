@@ -64,7 +64,7 @@ export default function ReceiptScreen({
     });
   };
   return (
-    <Screen navigation={navigation} title="영수증 등록" tab="garage">
+    <Screen navigation={navigation} title="영수증 등록" tab="record">
       <View style={s.content}>
         <View style={s.gap4}>
           <Text style={s.title}>영수증을 찍어 주세요</Text>

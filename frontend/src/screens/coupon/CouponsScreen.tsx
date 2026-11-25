@@ -5,7 +5,13 @@ import type { Coupon } from '../../app/domain';
 import { tokens, Button, Chip, Empty, Screen, formatMoney } from '../../app/ui';
 import type { RootStackScreenProps } from '../../navigation/types';
 import { useSessionStore } from '../../store/sessionStore';
-import { couponStatus, type CouponStatus } from '../purchase/purchaseMath';
+import {
+  couponStatus,
+  RECEIPTS_PER_COUPON,
+  receiptCouponProgress,
+  type CouponStatus,
+  type ReceiptRewardStatistics,
+} from '../purchase/purchaseMath';
 import { RewardAsset } from '../receipt/RewardVisuals';
 import { rewardColors as c, rewardStyles as s } from '../receipt/RewardStyles';
 import { code128Bars } from './barcode';
@@ -38,10 +44,11 @@ export default function CouponsScreen({
 }: RootStackScreenProps<'Coupons'>) {
   const user = useSessionStore(state => state.user);
   const resource = useResource<Coupon[]>('/api/coupons', undefined, !!user);
-  const statistics = useResource<{
-    stamps: number;
-    receiptReward?: { total: number; progress: number; target: number };
-  }>('/api/users/me/statistics', undefined, !!user);
+  const statistics = useResource<ReceiptRewardStatistics>(
+    '/api/users/me/statistics',
+    undefined,
+    !!user,
+  );
   const [filter, setFilter] = useState<CouponStatus>('available');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [updates, setUpdates] = useState<Record<string, Coupon>>({});
@@ -54,10 +61,8 @@ export default function CouponsScreen({
     coupon => couponStatus(coupon) === 'available',
   );
   const visible = coupons.filter(coupon => couponStatus(coupon) === filter);
-  const progress =
-    !user || statistics.data === undefined
-      ? undefined
-      : (statistics.data.receiptReward?.progress ?? statistics.data.stamps) % 3;
+  const progress = user ? receiptCouponProgress(statistics.data) : undefined;
+  const goReceipt = () => navigation.navigate('Receipt');
   const redeemCoupon = async (coupon: Coupon) => {
     if (using) return;
     setUsing(coupon.id);
@@ -93,7 +98,7 @@ export default function CouponsScreen({
       ],
     );
   return (
-    <Screen navigation={navigation} title="쿠폰함" tab="garage">
+    <Screen navigation={navigation} title="쿠폰함" tab="record">
       <View style={s.content}>
         <View style={s.row}>
           {(
@@ -114,19 +119,27 @@ export default function CouponsScreen({
             />
           ))}
         </View>
-        <View style={s.card}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityHint="영수증 등록 화면으로 이동해요"
+          testID="coupon-receipt-progress"
+          onPress={goReceipt}
+          style={[s.card, st.progressCard]}
+        >
           <View style={s.between}>
             <Text style={s.heading}>
               {progress === undefined
                 ? '영수증 인증 내역'
-                : `다음 쿠폰까지 영수증 ${3 - progress}회`}
+                : `다음 쿠폰까지 영수증 ${RECEIPTS_PER_COUPON - progress}회`}
             </Text>
             <Text style={[s.heading, s.green, s.font13]}>
-              {progress === undefined ? '— / 3' : `${progress} / 3`}
+              {progress === undefined
+                ? `— / ${RECEIPTS_PER_COUPON}`
+                : `${progress} / ${RECEIPTS_PER_COUPON}`}
             </Text>
           </View>
           <View style={[s.row, s.gap10]}>
-            {[0, 1, 2].map(index => (
+            {Array.from({ length: RECEIPTS_PER_COUPON }, (_, index) => index).map(index => (
               <View
                 key={index}
                 style={[
@@ -149,15 +162,16 @@ export default function CouponsScreen({
               인증 3회마다 1,000원 할인 쿠폰이 자동 발급돼요
             </Text>
           </View>
-        </View>
+          <Button
+            testID="coupon-go-receipt"
+            label="영수증 등록하러 가기"
+            variant="soft"
+            style={st.softButton}
+            onPress={goReceipt}
+          />
+        </Pressable>
         {!user ? (
-          <>
-            <Empty message="로그인하면 발급받은 쿠폰을 확인할 수 있어요." />
-            <Button
-              label="로그인하기"
-              onPress={() => navigation.navigate('Login')}
-            />
-          </>
+          <Empty message="발급받은 쿠폰을 확인하려면 서비스 로그인이 필요해요." />
         ) : resource.loading ? (
           <Text style={s.muted}>쿠폰을 불러오고 있어요.</Text>
         ) : visible.length === 0 ? (
@@ -286,6 +300,8 @@ const st = StyleSheet.create({
   bar: { height: 48 },
   quietZone: { flex: 10 },
   inactive: { opacity: 0.65 },
+  progressCard: { gap: 12 },
+  softButton: { minHeight: 44, paddingVertical: 10 },
   stamp: {
     width: 40,
     height: 40,

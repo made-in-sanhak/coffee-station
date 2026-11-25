@@ -25,17 +25,20 @@ const MUTED = '#928980';
 
 export default function LoginScreen({
   navigation,
+  route,
 }: RootStackScreenProps<'Login'>) {
   const handleKakaoLogin = () => {
     if (!env.kakaoRestApiKey) {
       Alert.alert(
-        '카카오 키가 없습니다',
-        '루트 .env 에 KAKAO_REST_API_KEY 를 넣고 Metro 를 다시 시작해 주세요.',
+        '카카오 로그인 연결 오류',
+        '카카오 로그인을 시작할 수 없습니다.',
       );
       return;
     }
 
-    navigation.navigate('KakaoLogin');
+    const returnTo = route.params?.returnTo;
+    if (returnTo) navigation.navigate('KakaoLogin', { returnTo });
+    else navigation.navigate('KakaoLogin');
   };
 
   return (
@@ -100,9 +103,14 @@ export default function LoginScreen({
           </Text>
         </Pressable>
 
-        <Text style={styles.ownerLogin}>
-          점주이신가요? 점주 계정으로 로그인
-        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="점주 계정으로 로그인"
+          testID="login-owner"
+          onPress={() => navigation.navigate('OwnerLogin')}
+        >
+          <Text style={styles.ownerLogin}>점주이신가요? 점주 계정으로 로그인</Text>
+        </Pressable>
 
         <Text style={styles.legalNotice}>
           시작하면 서비스 이용약관, 개인정보 처리방침,

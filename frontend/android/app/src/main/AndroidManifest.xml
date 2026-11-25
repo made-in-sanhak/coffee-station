@@ -37,6 +37,13 @@
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="coffeestation" android:host="payment-return" />
         </intent-filter>
+        <!-- 점주 초대 코드 딥링크: coffeestation://owner/invite?code=XXXXXX -->
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="coffeestation" android:host="owner" android:pathPrefix="/invite" />
+        </intent-filter>
       </activity>
     </application>
 </manifest>

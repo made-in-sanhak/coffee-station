@@ -68,7 +68,7 @@ function readPlace(value: unknown): KakaoPlace | null {
 type MapFailure = 'sdk-load' | 'sdk-timeout' | 'map-create' | 'network';
 
 const failureMessages: Record<MapFailure, string> = {
-  'sdk-load': `지도 SDK를 불러오지 못했습니다. JavaScript 키, 카카오맵 사용 설정, 등록 도메인(${KAKAO_MAP_BASE_URL})을 확인해 주세요.`,
+  'sdk-load': '지도 서비스에 연결하지 못했습니다. 다시 시도해 주세요.',
   'sdk-timeout':
     '지도 응답 시간이 초과되었습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.',
   'map-create': '지도를 표시하는 중 오류가 발생했습니다. 다시 시도해 주세요.',
@@ -305,7 +305,7 @@ function MapDocument({
         <Text style={styles.fallbackText}>
           {appKey
             ? failureMessages[failure]
-            : '오른쪽 위 설정에서 지도 JavaScript 키를 입력해 주세요.'}
+            : '지도 서비스가 준비되지 않았습니다. 카페 이름으로 검색할 수 있습니다.'}
         </Text>
         {appKey ? (
           <Pressable

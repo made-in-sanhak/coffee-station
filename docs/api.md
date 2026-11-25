@@ -18,6 +18,22 @@
 | `GET /api/cafes/:id` | 숫자 매장 ID | 매장 상세. 없는 ID는 404 |
 | `GET /api/cafes/:id/menus` | 숫자 매장 ID | 매장 메뉴·가격 목록. 없는 ID는 404 |
 
+## 로그인·회원
+
+카카오 로그인만 앱 호출 경로에 맞춰 접두사 없이 `/auth`를 쓰고, 나머지는 `/api/auth`·`/api/users`를 쓴다. 카카오 토큰 교환은 서버가 `.env`의 `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_REDIRECT_URI`로 한다. 클라이언트 시크릿은 서버에서만 사용하며 앱에 넣지 않는다. 토큰 서명에는 `JWT_SECRET`이 필요하다(비어 있으면 로그인 500).
+
+| 경로 | 요청 | 처리 |
+| --- | --- | --- |
+| `POST /auth/kakao` | `{ "code": "카카오 인가 코드", "redirectUri": "http://localhost:8080/auth/kakao/callback" }` | 카카오 토큰 교환 → 사용자 정보 조회 → 카카오 회원번호로 회원 저장(없으면 생성, 있으면 닉네임·사진 갱신) → `{ accessToken, refreshToken, user: { id, nickname, profileImageUrl } }` 반환 |
+| `POST /api/auth/refresh` | `{ "refreshToken": "..." }` | 새 access·refresh 토큰 발급. 사용한 refresh 토큰은 폐기되어 다시 쓸 수 없음 |
+| `POST /api/auth/logout` | `{ "refreshToken": "..." }` | refresh 토큰 폐기. 이미 폐기된 토큰이어도 200, `data: null` |
+| `GET /api/users/me` | `Authorization: Bearer <accessToken>` | 내 정보 `{ id, nickname, profileImageUrl, role }` |
+
+- **토큰**: access 토큰은 HS256 JWT(1시간, `sub`=회원 ID, `role`). refresh 토큰은 무작위 값(14일)이며 DB에는 SHA-256 해시만 저장한다(`users`, `refresh_tokens` 테이블).
+- **오류**: `code` 누락·`redirectUri` 불일치·`refreshToken` 누락은 400. 카카오 교환 실패(예: 시크릿 누락 KOE010, 만료된 인가 코드)·만료/폐기된 refresh 토큰·유효하지 않은 access 토큰은 401. 카카오 설정 또는 `JWT_SECRET`이 없으면 500, DB를 쓸 수 없으면 503.
+- **로그인 필요한 API 만들기**: 라우터에 `requireAuth`(`backend/src/middlewares/requireAuth.ts`)를 붙이고 `authOf(res).userId`로 회원 ID를 꺼낸다.
+- **DB 준비**: 새 DB는 `backend/sql/schema.sql`, 기존 DB는 `backend/sql/migrations/002_auth_users.sql`을 적용한다.
+
 ## 개발용 추천 탭 경로 (2026-11-11)
 
 현재 Express 접두사는 `/api/recommendations`이며 `/api/v1` 제품 명세와 다르다. `NODE_ENV=production`에서는 모든 추천 경로가 503으로 차단된다. `MVP_CATALOG_MODE=mysql-seed`에서 행신 DEMO 가격만 조회한다.
@@ -37,3 +53,14 @@
 Gemini 호출은 응답 본문 수신을 포함해 10초로 제한한다. 추천 이유 호출이 시간 초과되면 DB 검색 결과와 기본 문구를 그대로 반환한다. 자연어 추출이 시간 초과되면 504와 재시도·칩 검색 안내를 반환한다. 앱 요청 제한은 20초다.
 
 지원 조건은 0 이상 정수 예산, `DRIVE_THRU`, `DECAF`, `MILK`다. 조용함·콘센트·산미·고소함·단맛, 공부·대화, 실제 이동 시간은 아직 지원하지 않는다. 정상 빈 검색은 `items: []`; DB 오류는 503이다. 응답의 `matchedMenu`는 일치한 가격 옵션이고 `isDemo: true`, `checkedAt: null`이다. 가격순 상위 매장 3곳을 반환한다. Gemini 이유 선택은 설정이 `gemini`일 때만 시도하며, 검증 실패 시 DB 근거 문구로 돌아간다. 실제 MySQL·Gemini·기기 연결 성공 여부는 이 명세만으로 주장하지 않는다.
+
+## 통합 로그인 보안·세션 계약 (PR #47)
+
+1. `POST /auth/kakao/start {}` → `{authorizeUrl,redirectUri,state,flowToken}` (5분 일회용).
+2. `POST /auth/kakao {code,redirectUri,state,flowToken}` → 기존 `{accessToken,refreshToken,user}` 형식.
+3. `GET /api/users/me`는 users 회원·active·현재 세션을 검증하며 id/nickname/profileImageUrl/role을 반환한다.
+4. refresh는 같은 세션의 토큰을 한 번만 교체한다. 서명 실패 시 기존 토큰을 유지한다. 로그인부터 최대 14일이다.
+5. logout은 refresh뿐 아니라 해당 세션의 기존 access 요청도 차단한다. 반복 요청은 성공한다.
+
+코드·redirectUri만 보내던 이전 클라이언트는 state/flowToken 방식으로 업데이트해야 한다.
+이전 JWT/세션은 인증 DB 통합 이후 재로그인한다. 상세 DB 이전은 local-login-integration.md를 참조한다.

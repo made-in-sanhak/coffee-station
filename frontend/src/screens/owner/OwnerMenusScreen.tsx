@@ -18,6 +18,7 @@ import type {
   OwnerDashboard,
 } from '../../app/domain';
 import type { RootStackScreenProps } from '../../navigation/types';
+import { Camera, ChevronRight } from 'lucide-react-native';
 import { Asset, Badge, Line, P, Row, Txt, s } from './ownerUi';
 
 type Draft = MenuInput & { id?: string };
@@ -83,6 +84,16 @@ export default function OwnerMenusScreen({
     deals.reload();
     dashboard.reload();
   }
+  // 메뉴판으로 갱신을 반영하고 돌아오면 목록을 다시 불러옵니다.
+  const refreshedAt = route.params?.refreshedAt;
+  useEffect(() => {
+    if (refreshedAt) {
+      menus.reload();
+      dashboard.reload();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshedAt]);
+  const selectedCafe = dashboard.data?.cafes.find(cafe => cafe.id === cafeId);
   async function saveChanges() {
     setBusy(true);
     setError(null);
@@ -242,6 +253,30 @@ export default function OwnerMenusScreen({
           수정한 가격은 "점주 확인" 표시와 확인일이 함께 노출돼요.
         </Txt>
       </Row>
+      <Pressable
+        accessibilityRole="button"
+        testID="owner-menus-board-update"
+        disabled={!selectedCafe}
+        onPress={() =>
+          selectedCafe &&
+          navigation.navigate('MenuBoardCapture', {
+            mode: 'update',
+            cafe: { id: selectedCafe.id, name: selectedCafe.name, address: selectedCafe.address },
+          })
+        }
+        style={({ pressed }) => [styles.boardUpdate, pressed && { opacity: 0.75 }]}
+      >
+        <Camera size={20} color={P.green} strokeWidth={2} />
+        <View style={s.grow}>
+          <Txt bold color={P.green}>
+            메뉴판으로 메뉴 갱신
+          </Txt>
+          <Txt size={12} color={P.green}>
+            메뉴판을 다시 찍으면 바뀐 가격과 새 메뉴를 찾아드려요
+          </Txt>
+        </View>
+        <ChevronRight size={18} color={P.green} />
+      </Pressable>
       {(dashboard.error || menus.error) && (
         <Empty message={dashboard.error ?? menus.error!} onRetry={refresh} />
       )}
@@ -631,6 +666,14 @@ export default function OwnerMenusScreen({
   );
 }
 const styles = StyleSheet.create({
+  boardUpdate: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: P.soft,
+  },
   search: {
     flex: 1,
     backgroundColor: P.white,

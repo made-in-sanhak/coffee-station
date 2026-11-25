@@ -33,7 +33,6 @@ export default function ReceiptReviewScreen({
   const user = useSessionStore(state => state.user);
   const addPurchases = usePersonalStore(state => state.addPurchases);
   const hydrated = usePersonalStore(state => state.hydrated);
-  const purchases = usePersonalStore(state => state.purchases);
   const [form, setForm] = useState(() => receiptDraftToForm(draft));
   const [confirmedItems, setConfirmedItems] = useState<
     ReceiptFormItem[] | null
@@ -58,23 +57,6 @@ export default function ReceiptReviewScreen({
     draft.total !== amount;
   const needsAmountConfirmation =
     totalMismatch && confirmedItems !== form.items;
-  const caffeine = form.items.reduce(
-    (sum, item) =>
-      sum + (Number(item.caffeineMg) || 0) * (Number(item.quantity) || 0),
-    0,
-  );
-  const unknownCaffeine = form.items.some(
-    item => item.caffeineMg.trim() === '',
-  );
-  const todayKey = new Date().toDateString();
-  const todayCaffeine = purchases
-    .filter(
-      purchase => new Date(purchase.purchasedAt).toDateString() === todayKey,
-    )
-    .reduce(
-      (sum, purchase) => sum + (purchase.caffeineMg ?? 0) * purchase.quantity,
-      0,
-    );
   const updateItem = (key: keyof ReceiptFormItem, value: string) => {
     if (typeof editing !== 'number') return;
     const index = editing;
@@ -156,7 +138,7 @@ export default function ReceiptReviewScreen({
   };
   const selected = typeof editing === 'number' ? form.items[editing] : null;
   return (
-    <Screen navigation={navigation} title="인식 결과 확인" tab="garage">
+    <Screen navigation={navigation} title="인식 결과 확인" tab="record">
       <View style={s.content}>
         <View style={s.notice}>
           <RewardAsset name="check" />
@@ -259,23 +241,6 @@ export default function ReceiptReviewScreen({
               onPress={() => setConfirmedItems(form.items)}
             />
           )}
-        </View>
-        <View style={s.linkRow}>
-          <View style={st.zap}>
-            <RewardAsset name="zap" />
-          </View>
-          <View style={s.flex}>
-            <Text style={s.heading}>
-              {unknownCaffeine
-                ? `확인된 카페인 ${caffeine}mg`
-                : `카페인 약 ${caffeine}mg 기록`}
-            </Text>
-            <Text style={s.muted}>
-              {unknownCaffeine
-                ? '카페인 미등록 메뉴가 포함돼 있어요'
-                : `오늘 누적 ${todayCaffeine + caffeine}mg · 참고 기준 400mg`}
-            </Text>
-          </View>
         </View>
         {!draft.sample && !user && (
           <Text style={s.muted}>
@@ -391,12 +356,6 @@ export default function ReceiptReviewScreen({
                     keyboardType="number-pad"
                     onChangeText={value => updateItem('amount', value)}
                   />
-                  <Field
-                    label="한 잔의 카페인 (mg, 모르면 비워 두세요)"
-                    value={selected.caffeineMg}
-                    keyboardType="decimal-pad"
-                    onChangeText={value => updateItem('caffeineMg', value)}
-                  />
                   <Button
                     label="메뉴 삭제"
                     variant="quiet"
@@ -449,14 +408,6 @@ const st = StyleSheet.create({
     fontSize: 20,
     lineHeight: 28,
     fontWeight: '900',
-  },
-  zap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: c.brownLight,
   },
   scrim: { flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' },
   editor: {

@@ -107,7 +107,7 @@ test.each(['fresh', 'saved'])(
         .map(chip => chip.props.label);
     expect(selectedChips()).toEqual([]);
     await act(async () => {
-      await action('조건에 맞는 카페 찾기')();
+      await action('카페 찾기')();
     });
     expect(navigation.navigate).toHaveBeenLastCalledWith(
       'RecommendationResult',
@@ -135,7 +135,7 @@ test.each(['fresh', 'saved'])(
       '도보 5분',
     ]);
     await act(async () => {
-      await action('조건에 맞는 카페 찾기')();
+      await action('카페 찾기')();
     });
     expect(navigation.navigate).toHaveBeenLastCalledWith(
       'RecommendationResult',
@@ -243,8 +243,10 @@ test('natural-language preparation sends selected chips and confirms merged cond
       tree.root.findAllByType(Chip).find(node => node.props.label === '우유 들어간')!.props.onPress();
       input().props.onChangeText('5천 원 이하 디카페인 메뉴를 찾아줘');
     });
+    const button = () => tree.root.findByType(Button);
+    expect(button().props.label).toBe('검색 조건 확인하기');
     await act(async () => {
-      await tree.root.findAllByType(Button).find(node => node.props.label === '조건에 맞는 카페 찾기')!.props.onPress();
+      await button().props.onPress();
     });
     expect(post).toHaveBeenCalledWith('/api/recommendations/chat/prepare', {
       message: '5천 원 이하 디카페인 메뉴를 찾아줘',
@@ -253,17 +255,20 @@ test('natural-language preparation sends selected chips and confirms merged cond
     });
     expect(navigation.navigate).not.toHaveBeenCalled();
     expect(JSON.stringify(tree.toJSON())).toContain('디카페인, 우유 들어간');
+    expect(button().props.label).toBe('이 조건으로 카페 찾기');
     await act(() => {
-      tree.root.findAllByType(Button).find(node => node.props.label === '분석된 조건 확인 후 검색')!.props.onPress();
+      button().props.onPress();
     });
+    expect(post).toHaveBeenCalledTimes(1);
     expect(navigation.navigate).toHaveBeenCalledWith('RecommendationResult', {
       request: expect.objectContaining({ budget: 5000, tastes: ['디카페인', '우유 들어간'] }),
       proposalId: 'signed-merged-proposal',
     });
     await act(() => {
-      tree.root.findAllByType(Chip).find(node => node.props.label === '3천원 이하')!.props.onPress();
+      tree.root.findAllByType(Chip).find(node => node.props.label === '도보 5분')!.props.onPress();
     });
-    expect(tree.root.findAllByType(Button).some(node => node.props.label === '분석된 조건 확인 후 검색')).toBe(false);
+    expect(button().props.label).toBe('검색 조건 확인하기');
+    expect(JSON.stringify(tree.toJSON())).not.toContain('최종 검색 조건');
   } finally {
     post.mockRestore();
     usePersonalStore.setState({ onboarded: previous });

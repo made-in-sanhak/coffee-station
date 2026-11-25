@@ -7,6 +7,7 @@ import { Button, Screen } from '../../app/ui';
 import type { RootStackScreenProps } from '../../navigation/types';
 import { useSessionStore } from '../../store/sessionStore';
 import { createManualDraft } from './receiptForm';
+import { clovaReceiptDraft } from './clovaReceipt';
 import { RewardAsset, ReceiptViewfinder } from './RewardVisuals';
 import { rewardColors as c, rewardStyles as s } from './RewardStyles';
 
@@ -31,11 +32,11 @@ export default function ReceiptScreen({
     try {
       const picked = await native.pickImage(camera);
       setImageUri(picked.uri);
-      const draft = await api.post<ReceiptDraft>('/api/receipts/scan', {
+      const result = await api.post<unknown>('/api/receipts/scan', {
         base64: picked.base64,
         type: picked.type,
-        name: picked.name,
       });
+      const draft: ReceiptDraft = clovaReceiptDraft(result);
       navigation.navigate('ReceiptReview', {
         draft: { ...draft, imageUri: picked.uri },
       });

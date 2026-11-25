@@ -332,3 +332,17 @@ test('explicit won overrides board units and numeric menu names survive', () => 
  const items=ocr.parseMenuBoard({images:[{inferResult:'SUCCESS',fields:[field('단위: 천원',0,0),field('시럽 추가',0,30),field('50원',300,30),field('블렌드',0,60),field('2',100,60),field('/',180,60),field('4.5',300,60),field('라떼',0,90),field('4',300,90)]}]});
  assert.deepEqual(items.map(x=>[x.name,x.price]),[['시럽 추가',50],['블렌드 2',4500],['라떼',4000]]);
 });
+
+
+test('HOT and ICE price columns keep names and temperatures separate',()=>{
+ const items=ocr.parseMenuBoard({images:[{inferResult:'SUCCESS',fields:[field('메뉴',0,0),field('HOT',200,0),field('ICE',400,0),field('아메리카노',0,30),field('4,000',200,30),field('4,500',400,30)]}]});
+ assert.deepEqual(items.map(x=>[x.name,x.temperature,x.price]),[['아메리카노','HOT',4000],['아메리카노','ICE',4500]]);
+ const current=['HOT','ICE'].map((temperature,i)=>({menuId:String(i),name:'아메리카노',category:'COFFEE',size:'Regular',temperature,price:3000,available:true}));
+ const diff=menuDifference(items,current);assert.ok(diff.changes.every(x=>x.kind!=='MISSING'));assert.ok(diff.changes.every(x=>x.existingOptions.length===1));
+});
+test('unknown price columns require manual confirmation without false missing menus',()=>{
+ const items=ocr.parseMenuBoard({images:[{inferResult:'SUCCESS',fields:[field('아메리카노',0,30),field('4,000',200,30),field('4,500',400,30)]}]});
+ assert.equal(items[0].name,'아메리카노');assert.equal(items[0].price,null);assert.equal(items[0].confidence,0);
+ const diff=menuDifference(items,[{menuId:'1',name:'아메리카노',category:'COFFEE',size:'Regular',temperature:'HOT',price:3000,available:true}]);
+ assert.equal(diff.unchanged.length,1);assert.ok(!diff.changes.some(x=>x.kind==='MISSING'));
+});

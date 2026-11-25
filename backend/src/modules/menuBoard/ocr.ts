@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, open, unlink } from "node:fs/promises";
 import path from "node:path";
 import { AppError } from "../../common/AppError";
+import { ocrUsageDirectory } from "../../config/ocrUsage";
 import { env } from "../../config/env";
 import { bad, object } from "../community/validation";
 
@@ -108,13 +109,31 @@ export function parseMenuBoard(value: unknown): MenuCandidate[] {
       )
       .join("\n")
   );
-  for (const row of rows) {
-    const ordered = row.sort((a, b) => a.x - b.x);
-    let names: string[] = [];
-    let confidence = 1;
     const pricePattern = thousandWon
         ? /^(?:(.*?)\s+)?(\d{1,3}(?:,\d{3})+|\d{1,3}\.\d{1,2}|\d{1,7})\s*(원)?$/
         : /^(?:(.*?)\s+)?(\d{1,3}(?:,\d{3})+|\d{1,3}\.\d{1,2}|\d{3,7}|\d{1,2}(?=\s*원$))\s*(원)?$/;
+  let temperatures: string[] = [];
+  const expanded: Word[][] = [];
+  for (const row of rows) {
+    const ordered = [...row].sort((a,b)=>a.x-b.x);
+    const headers = ordered.filter(word=>/^(HOT|ICE|ICED)$/i.test(word.name));
+    if (headers.length === 2 && new Set(headers.map(w=>w.name.toUpperCase().replace('ICED','ICE'))).size === 2) {
+      temperatures = headers.map(w=>w.name.toUpperCase().replace('ICED','ICE'));
+      continue;
+    }
+    const prices = ordered.filter(word=>{const match=word.name.match(pricePattern);return match && !match[1];});
+    const first = prices.length ? ordered.indexOf(prices[0]) : -1;
+    if (prices.length === 2 && first > 0 && temperatures.length === 2) {
+      for (let i=0;i<2;i++) expanded.push([...ordered.slice(0,first), {...prices[i],name:temperatures[i],x:prices[i].x-1},prices[i]]);
+    } else if (prices.length > 1 && first > 0 && !ordered.some(word=>word.name === "/")) {
+      // Unknown price columns: keep the clean menu name for manual confirmation.
+      const name=ordered.slice(0,first).map(w=>w.name).join(' ');
+      items.push({name,category:null,size:null,temperature:null,price:null,confidence:0,note:'가격 열을 구분하지 못했어요. 기존 옵션과 가격을 직접 확인해 주세요.'});
+    } else expanded.push(ordered);
+  }
+  for (const ordered of expanded) {
+    let names: string[] = [];
+    let confidence = 1;
     for (const [index, word] of ordered.entries()) {
       const match = word.name.replace(/^\/\s*/, "").match(pricePattern);
       confidence = Math.min(confidence, Math.max(0, word.confidence));
@@ -232,7 +251,7 @@ async function reserve(
 export async function readMenuPhotos(photos: ReturnType<typeof menuPhotos>) {
   const month = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 7);
   const limit = Number(process.env.CLOVA_OCR_CALL_LIMIT);
-  const ledger = process.env.MENU_BOARD_OCR_USAGE_DIR;
+  const ledger = ocrUsageDirectory();
   const url = URL.parse(process.env.CLOVA_OCR_URL ?? "");
   const secret = process.env.CLOVA_OCR_SECRET?.trim();
   if (

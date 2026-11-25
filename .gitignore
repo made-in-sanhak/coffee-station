@@ -67,3 +67,6 @@ backend/dist/
 ai-jobs/.cache/
 ai-jobs/.tmp-test/
 backend/artifacts/
+
+# Local bootstrap backups (contain database data)
+/.local/

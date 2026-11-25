@@ -28,16 +28,16 @@ KAKAO_REST_API_KEY/KAKAO_REDIRECT_URI를 설정한다. 콘솔에서 시크릿을
 
 ## DB 적용과 기존 데이터 이전
 
-**백엔드를 중지하고 DB를 백업한 후** backend 폴더에서 실행한다. 매장 기본 schema.sql은 선행 적용해야 한다.
+일반 개발 실행은 루트 또는 backend에서 `npm run dev`를 사용한다. DB 적용·초기 데이터·기존 DB 백업은 자동 처리한다.
+자세한 준비 단계는 development-startup.md를 참고한다. 수동 DB 준비만 필요하면 backend에서 아래 명령을 사용한다.
 
 ```powershell
-npm.cmd ci
 npm.cmd run db:community
-npm.cmd run dev
 ```
 
-- 002_auth_users.sql: 팀 회원·refresh 테이블.
-- 002_community_features.sql: 리뷰·사진·좋아요·댓글·제보·이용 기록 테이블(첫 적용 때만 실행).
+- schema.sql: 신규 기본 테이블 및 팀 회원·refresh 테이블.
+- 006_community_schema.sql: users 기준 리뷰·사진·좋아요·댓글·제보·이용 기록 테이블.
+- 기존 community_accounts가 있는 DB는 002 기존 관계를 보완한 후 005로 이전한다.
 - 005_unified_auth.sql + scripts/migrate-auth.cjs: active/session 열, 일회용 흐름, 작성자 매핑과 외래 키 통합.
 - 003_import_generated_reviews.sql: 이전 생성 리뷰가 있으면 ID·출처를 유지하여 가져오기.
 - 004_service_auth.sql은 이전 로컬 구조 기록이다. 새 설치에는 적용하지 않는다.

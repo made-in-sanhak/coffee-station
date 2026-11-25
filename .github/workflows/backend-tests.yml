@@ -48,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [features, migration, owner-menu]
+        mode: [features, migration, startup, owner-menu]
     services:
       mysql:
         image: mysql:8.4
@@ -102,3 +102,8 @@ jobs:
         env:
           MENU_BOARD_TEST_DB: '1'
         run: node --test tests/menuBoard.cjs
+      - name: Concurrent missing DB startup, MVP read-only guard and backup restore
+        if: matrix.mode == 'startup'
+        env:
+          DEV_BOOTSTRAP_TEST: '1'
+        run: node --test tests/devBootstrap.cjs

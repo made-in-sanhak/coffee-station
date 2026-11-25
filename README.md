@@ -1,11 +1,12 @@
 # ☕ 커피 주유소 (Coffee Station)
 
-2026학년도 2학기 산학프로젝트 · 메이드 인 산학 (6팀). 현재 저장소는 모의 추천과 리뷰 분석 검증 단계다. 실제 인증·가격 DB·운영 AI 연동은 완료되지 않았다.
+2026학년도 2학기 산학프로젝트 · 메이드 인 산학 (6팀). React Native 앱과 Express/MySQL을 사용합니다. 카카오 서비스 인증, 매장·메뉴 조회, 리뷰·댓글·좋아요·가격 비교 API를 제공하며 운영 AI·점주·구매 기능 등은 별도 범위입니다.
 
 ## 현재 구조
 
 ```text
-React Native 앱 → Express/TypeScript 추천·조회 API → 모의 카탈로그
+React Native 앱 → Express/TypeScript 인증·조회·리뷰 API → MySQL
+                               ↘ 개발용 DB 추천 / 모의 카탈로그
                                ↘ Gemini 조건 추출 코드 (실제 품질 평가 전)
 Python 리뷰 작업 → 모의 분석 저장소 / 모의 JSON 파일 → Express 모의 리뷰 조회
 ```
@@ -17,7 +18,25 @@ Python 리뷰 작업 → 모의 분석 저장소 / 모의 JSON 파일 → Expres
 
 설계와 현재 제한은 [실시간 추천](docs/ai-recommendation.md), [리뷰 분석](docs/ai-review-analysis.md), [개발 계획](docs/ai-development-plan.md)을 참고한다. 배포 상태는 [배포 안내](docs/deployment.md)를 참고한다.
 
-## 로컬 시작
+## 팀 공통 로컬 실행
+
+Node.js 22.11 이상과 Docker Desktop은 최초 한 번 설치합니다. 최신 develop을 작업 폴더에 반영한 뒤
+**저장소 루트 또는 backend에서 같은 명령 한 개**로 DB와 백엔드를 준비합니다.
+
+```powershell
+npm.cmd run dev
+```
+
+필요한 의존성 설치, 로컬 MySQL 확인/생성, 기본 .env 생성, DB 스키마·회원 이전,
+행신 매장 21곳·메뉴/가격 옵션·매장별 리뷰 5개를 자동 준비하고 API를 시작합니다.
+다음 실행부터 적용 이력을 확인하며 기존 회원·리뷰·가격은 유지합니다. 바뀌는 기존 DB는 .local/db-backups에 먼저 백업합니다.
+SQL SOURCE나 db:community를 fetch마다 따로 실행하지 않아도 됩니다. git fetch 자체가 실행 작업을 하는 것은 아닙니다.
+
+실제 카카오 로그인은 .env의 팀/개인 카카오 설정이 한 번 필요하며 키를 Git으로 공유하지 않습니다.
+이 명령은 DB·백엔드를 실행합니다. 프론트/에뮬레이터는 [프론트 실행](frontend/README.md)을 따릅니다.
+자세한 자동화·백업·옵션은 [개발 자동 실행](docs/development-startup.md)을 참고하세요.
+
+## 모의 MVP 실행
 
 현재 실행 가능한 발표용 최소 흐름과 검증 명령은 [로컬 MVP 실행](docs/mvp-local-run.md)을 참고하세요.
 `backend`의 `npm run dev:mvp`는 모의 자료, `npm run dev:mvp:db`는 기존 MySQL 시연 자료를 사용합니다.
@@ -32,10 +51,10 @@ cd backend
 npm install
 npm run build
 node --test tests/recommendations.cjs
-npm run dev
+npm run dev:mvp
 ```
 
-`/health`는 서버 및 DB 연결 상태를 보고한다. 로컬 MySQL이 필요한 작업에서만 `infra/docker-compose.yml`을 사용한다. 기존 볼륨은 임의 삭제하지 않는다. 모의 리뷰 조회를 수동 시연할 때만 `ai-jobs/scripts/export_mock_review_summary.py`를 먼저 실행한다.
+`/health`는 서버 및 DB 연결 상태를 보고한다. 일반 개발 실행은 준비가 끝난 후 API를 열며 자동 생성 MySQL에는 `infra/docker-compose.dev.yml`을 사용한다. 기존 `infra/docker-compose.yml` 환경도 연결값을 유지하여 사용할 수 있다. 기존 볼륨은 임의 삭제하지 않는다. 모의 리뷰 조회를 수동 시연할 때만 `ai-jobs/scripts/export_mock_review_summary.py`를 먼저 실행한다.
 
 Python 리뷰 테스트는 `ai-jobs`에서 `requirements.txt` 설치 후 다음 명령으로 실행한다.
 
@@ -121,7 +140,7 @@ backend/src/
 
 - 테스트는 `backend/tests/이름.cjs`에 `node:test`로 작성하고, 빌드된 `../dist/...`를 `require`한다.
 - 파일 맨 위에서 `process.env.NODE_ENV = 'test'`를 설정한다. 이렇게 하면 개발자의 `.env`를 읽지 않으므로, 필요한 설정값은 테스트 안에서 직접 넣는다.
-- DB(`pool.query`)와 외부 API(`fetch`)는 가짜로 바꿔서 실제 서비스에 접속하지 않게 한다.
+- 기본 테스트는 DB·외부 API 대역을 사용한다. 실제 MySQL 검증은 명시적으로 선택한 별도 테스트 DB와 CI에서 실행하며, 앱 DB를 초기화하지 않는다.
 - PR 전에 `backend`에서 다음 두 명령이 통과해야 한다.
 
 ```powershell

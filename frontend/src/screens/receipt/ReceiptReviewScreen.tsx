@@ -34,6 +34,9 @@ export default function ReceiptReviewScreen({
   const addPurchases = usePersonalStore(state => state.addPurchases);
   const hydrated = usePersonalStore(state => state.hydrated);
   const [form, setForm] = useState(() => receiptDraftToForm(draft));
+  const [confirmedItems, setConfirmedItems] = useState<
+    ReceiptFormItem[] | null
+  >(null);
   const [editing, setEditing] = useState<'store' | 'date' | number | null>(
     null,
   );
@@ -48,6 +51,12 @@ export default function ReceiptReviewScreen({
     (sum, item) => sum + (Number(item.amount.replace(/,/g, '')) || 0),
     0,
   );
+  const totalMismatch =
+    !!(draft.scanned || draft.id || draft.sample) &&
+    draft.total !== null &&
+    draft.total !== amount;
+  const needsAmountConfirmation =
+    totalMismatch && confirmedItems !== form.items;
   const updateItem = (key: keyof ReceiptFormItem, value: string) => {
     if (typeof editing !== 'number') return;
     const index = editing;
@@ -66,7 +75,7 @@ export default function ReceiptReviewScreen({
     setError(null);
   };
   const save = async (local: boolean) => {
-    if (busyRef.current) return;
+    if (draft.sample || busyRef.current || needsAmountConfirmation) return;
     const validation = validateReceiptForm(form);
     if (validation) {
       setError(validation);
@@ -134,7 +143,9 @@ export default function ReceiptReviewScreen({
         <View style={s.notice}>
           <RewardAsset name="check" />
           <Text style={s.noticeText}>
-            {draft.id
+            {draft.sample
+              ? '테스트용 OCR 결과예요. 수정해 볼 수 있지만 저장되지는 않아요.'
+              : draft.scanned || draft.id
               ? '영수증을 읽었어요. 내용이 맞는지 확인해 주세요.'
               : '구매 내용을 직접 입력해 주세요.'}
           </Text>
@@ -163,7 +174,9 @@ export default function ReceiptReviewScreen({
             style={s.row}
           >
             <Text style={st.label}>결제 일시</Text>
-            <Text style={[s.text, s.flex]}>{form.purchasedAt}</Text>
+            <Text style={[s.text, s.flex]}>
+              {form.purchasedAt || '결제 일시를 입력해 주세요'}
+            </Text>
             <RewardAsset name="editSmall" />
           </Pressable>
           <View style={s.divider} />
@@ -213,8 +226,23 @@ export default function ReceiptReviewScreen({
             <Text style={[s.heading, s.font15]}>결제 금액</Text>
             <Text style={st.total}>{formatMoney(amount)}</Text>
           </View>
+          {totalMismatch && (
+            <Text style={s.muted}>
+              영수증 합계는 {formatMoney(draft.total)}, 저장할 메뉴 금액은{' '}
+              {formatMoney(amount)}이에요. 빠진 메뉴나 할인이 있는지 확인해
+              주세요.
+            </Text>
+          )}
+          {!draft.sample && needsAmountConfirmation && (
+            <Button
+              testID="receipt-confirm-total"
+              label="금액 차이 확인했어요"
+              variant="outline"
+              onPress={() => setConfirmedItems(form.items)}
+            />
+          )}
         </View>
-        {!user && (
+        {!draft.sample && !user && (
           <Text style={s.muted}>
             기기에 개인 기록으로 저장돼요. 인증 횟수와 쿠폰에는 반영되지 않아요.
           </Text>
@@ -234,33 +262,39 @@ export default function ReceiptReviewScreen({
           </Text>
         )}
         <View style={s.spacer} />
-        <Button
-          testID="receipt-save"
-          label={
-            savedRemote.current
-              ? '기기에 저장 다시 시도'
-              : user
-              ? '기록 저장하기'
-              : '기기에 기록 저장하기'
-          }
-          disabled={saving || !hydrated}
-          loading={saving}
-          onPress={() => save(!user)}
-        />
-        {offerLocal && !savedRemote.current && (
-          <Button
-            testID="receipt-save-local"
-            label="기기에 수동 기록으로 저장"
-            variant="outline"
-            disabled={saving}
-            onPress={() => save(true)}
-          />
+        {draft.sample ? (
+          <Button label="샘플 닫기" onPress={() => navigation.goBack()} />
+        ) : (
+          <>
+            <Button
+              testID="receipt-save"
+              label={
+                savedRemote.current
+                  ? '기기에 저장 다시 시도'
+                  : user
+                  ? '기록 저장하기'
+                  : '기기에 기록 저장하기'
+              }
+              disabled={saving || !hydrated || needsAmountConfirmation}
+              loading={saving}
+              onPress={() => save(!user)}
+            />
+            {offerLocal && !savedRemote.current && (
+              <Button
+                testID="receipt-save-local"
+                label="기기에 수동 기록으로 저장"
+                variant="outline"
+                disabled={saving || needsAmountConfirmation}
+                onPress={() => save(true)}
+              />
+            )}
+            <Text style={[s.muted, s.center]}>
+              {offerLocal
+                ? '기기에 저장한 기록은 쿠폰 인증에 반영되지 않아요'
+                : '저장하면 구매 캘린더에서 확인할 수 있어요'}
+            </Text>
+          </>
         )}
-        <Text style={[s.muted, s.center]}>
-          {offerLocal
-            ? '기기에 저장한 기록은 쿠폰 인증에 반영되지 않아요'
-            : '저장하면 구매 캘린더에서 확인할 수 있어요'}
-        </Text>
       </View>
       <Modal
         visible={editing !== null}

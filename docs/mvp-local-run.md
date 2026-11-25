@@ -17,6 +17,12 @@ npm run dev:mvp:db
 ```
 
 두 명령 모두 자연어 추출은 mock으로 고정하여 외부 AI 호출을 하지 않습니다.
+AI 추천 탭에서 실제 Gemini 조건 추출을 확인할 때는 기존 서버를 종료하고
+`npm run dev:mvp:gemini`로 실행합니다. 루트 로컬 `.env`에
+`GEMINI_API_KEY`, `GEMINI_MODEL`, MySQL 접속 설정이 필요합니다.
+탭에서 자연어를 입력하면 `/api/recommendations/chat/prepare`가 Gemini로 조건을 추출합니다.
+조건 확인과 칩 검색은 MySQL로 후보를 조회합니다.
+
 DB 모드는 루트 .env의 DB_*를 사용하며 데이터 생성·수정·초기화를 하지 않습니다.
 MySQL을 먼저 실행하고 기존 seed 자료를 준비해야 합니다. DEMO 출처만 조회하므로
 다른 출처 가격이나 검색 조건 밖의 가격은 결과에 포함되지 않습니다.

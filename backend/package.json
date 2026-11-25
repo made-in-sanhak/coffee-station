@@ -6,6 +6,7 @@
     "dev": "node ../scripts/dev.cjs",
     "dev:mvp": "node scripts/start-mvp.cjs mock",
     "dev:mvp:db": "node scripts/start-mvp.cjs mysql-seed",
+    "dev:mvp:gemini": "node scripts/start-mvp.cjs mysql-seed gemini",
     "smoke:mvp": "node scripts/smoke-mvp.cjs",
     "test": "npm run build && node --test tests/*.cjs",
     "build": "tsc",

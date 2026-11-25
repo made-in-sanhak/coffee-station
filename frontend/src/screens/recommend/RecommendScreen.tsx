@@ -168,6 +168,14 @@ export default function RecommendScreen({
     }
   };
 
+  const confirmedProposal =
+    proposal?.status === 'AWAITING_CONFIRMATION' ? proposal : null;
+  const actionLabel = confirmedProposal
+    ? '이 조건으로 카페 찾기'
+    : request.query.trim()
+    ? '검색 조건 확인하기'
+    : '카페 찾기';
+
   return (
     <Screen
       navigation={navigation}
@@ -214,9 +222,9 @@ export default function RecommendScreen({
         </Pressable>
       </View>
       {hint && <Notice>{hint}</Notice>}
-      {proposal && <Notice>{proposal.unresolved.length
-        ? `추가 확인이 필요합니다: ${proposal.unresolved.join(', ')}`
-        : `최종 검색 조건: ${proposal.conditions.maxPrice === null ? '예산 제한 없음' : `${proposal.conditions.maxPrice}원 이하`}, ${proposal.conditions.purpose === 'DRIVE_THRU' ? '드라이브스루' : '목적 제한 없음'}, ${fromProductConditions(proposal.conditions, '').tastes.join(', ') || '취향 제한 없음'}. 자연어 근거: ${Object.values(proposal.evidence).join(', ') || '없음'}`}</Notice>}
+      {proposal?.status === 'NEEDS_CLARIFICATION' && (
+        <Notice>추가 확인이 필요합니다: {proposal.unresolved.join(', ')}</Notice>
+      )}
       <Notice>자연어를 입력해도 선택한 조건을 유지합니다. 문장에 명시한 예산·목적은 우선 적용하고, 취향은 선택한 항목과 합칩니다. 조건을 해제하려면 칩에서 변경해 주세요.</Notice>
       <View style={styles.group}>
         <Text style={styles.label}>예산</Text>
@@ -280,15 +288,17 @@ export default function RecommendScreen({
                 request.travel?.travelMode === item.mode &&
                 request.travel.travelMinutes === item.minutes
               }
-              onPress={() =>
+              onPress={() => {
+                inputVersion.current++;
+                setProposal(null);
                 setRequest(previous => ({
                   ...previous,
                   travel: {
                     travelMode: item.mode,
                     travelMinutes: item.minutes,
                   },
-                }))
-              }
+                }));
+              }}
             />
           ))}
         </View>
@@ -301,16 +311,19 @@ export default function RecommendScreen({
         )}
       </View>
       <View style={styles.spacer} />
-      {proposal?.status === 'AWAITING_CONFIRMATION' && <Button
-        label="분석된 조건 확인 후 검색"
-        onPress={() => navigation.navigate('RecommendationResult', {
-          request: fromProductConditions(proposal.conditions,request.query), proposalId: proposal.proposalId,
-        })}
-        disabled={locating || listening}
-      />}
+      {confirmedProposal && (
+        <Notice>
+          {`최종 검색 조건: ${confirmedProposal.conditions.maxPrice === null ? '예산 제한 없음' : `${confirmedProposal.conditions.maxPrice}원 이하`}, ${confirmedProposal.conditions.purpose === 'DRIVE_THRU' ? '드라이브스루' : '목적 제한 없음'}, ${fromProductConditions(confirmedProposal.conditions, '').tastes.join(', ') || '취향 제한 없음'}. 자연어 근거: ${Object.values(confirmedProposal.evidence).join(', ') || '없음'}`}
+        </Notice>
+      )}
       <Button
-        label="조건에 맞는 카페 찾기"
-        onPress={submit}
+        label={actionLabel}
+        onPress={confirmedProposal
+          ? () => navigation.navigate('RecommendationResult', {
+              request: fromProductConditions(confirmedProposal.conditions, request.query),
+              proposalId: confirmedProposal.proposalId,
+            })
+          : submit}
         loading={locating}
         disabled={listening}
       />

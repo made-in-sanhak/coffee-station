@@ -134,7 +134,8 @@ export function menuDifference(items: MenuCandidate[], current: Stored[]) {
     for (const candidate of compatible) seen.add(candidate.menuId);
     const exact = compatible.filter(
       (other) =>
-        sizeKey(other.size) === sizeKey(item.size ?? "Regular") &&
+        item.size !== null &&
+        sizeKey(other.size) === sizeKey(item.size) &&
         other.temperature === item.temperature
     );
     if (exact.length === 1 && item.price !== exact[0].price) {

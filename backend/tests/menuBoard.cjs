@@ -76,7 +76,7 @@ test("diff keeps ambiguous options and requires a price for blurred OCR changes"
     available: true,
   });
   const { changes, unchanged } = menuDifference(
-    [items[0], { ...items[1], temperature: "HOT" }, items[2]],
+    [{...items[0],size:"Regular"}, { ...items[1], size:"Regular", temperature: "HOT" }, items[2]],
     [
       stored("아메리카노", "1", 2000, "ICE"),
       stored("카페라떼", "2", 3000, "HOT"),
@@ -177,7 +177,9 @@ test(
       const diff = (
         await call(owner + "/menu-board/diff", { cafeId, images: [photo] })
       ).data;
-      const change = diff.changes.find((item) => item.kind === "PRICE_CHANGED");
+      const uncertain = diff.changes.find(item=>item.name.includes('아메리카노') && item.existingOptions?.length);
+      const selected = uncertain.existingOptions.find(item=>item.temperature==='ICE');
+      const change = {...selected,kind:'PRICE_CHANGED',previousPrice:selected.price,price:uncertain.price};
       assert.equal(change.previousPrice, 3000);
       assert.equal(
         (await call(owner + "/menus/apply-diff", { cafeId, changes: [change] }))
@@ -271,8 +273,9 @@ test("decimal menu prices preserve a manual candidate when the currency unit is 
     },
   ];
   const diff = menuDifference([{ ...parsed[0], temperature: "HOT" }], current);
-  assert.equal(diff.changes[0].kind, "PRICE_CHANGED");
+  assert.equal(diff.changes[0].kind, "NEW");
   assert.equal(diff.changes[0].price, null);
+  assert.equal(diff.changes[0].existingOptions[0].menuId,"1");
 });
 
 test("decimal prices use an explicit thousand-won unit without changing ordinary won amounts", () => {
@@ -315,4 +318,17 @@ test('explicit thousand-won menus retain both short integers and decimals', () =
  assert.deepEqual(parsed.map(x=>x.price),[4000,4500]);
  const unknown=ocr.parseMenuBoard({images:[{inferResult:'SUCCESS',fields:[field('아메리카노',0,30),field('4',300,30)]}]});
  assert.equal(unknown.length,0);
+});
+
+
+test('missing size never selects Regular over another compatible size', () => {
+ const current=['Regular','Large'].map((size,i)=>({menuId:String(i+1),name:'라떼',category:'COFFEE',size,temperature:'HOT',price:4000,available:true}));
+ const diff=menuDifference([{name:'라떼',category:'COFFEE',size:null,temperature:'HOT',price:4500,confidence:.99}],current);
+ assert.equal(diff.changes[0].kind,'NEW');assert.equal(diff.changes[0].existingOptions.length,2);
+ assert.equal(diff.unchanged.length,2);
+});
+
+test('explicit won overrides board units and numeric menu names survive', () => {
+ const items=ocr.parseMenuBoard({images:[{inferResult:'SUCCESS',fields:[field('단위: 천원',0,0),field('시럽 추가',0,30),field('50원',300,30),field('블렌드',0,60),field('2',100,60),field('/',180,60),field('4.5',300,60),field('라떼',0,90),field('4',300,90)]}]});
+ assert.deepEqual(items.map(x=>[x.name,x.price]),[['시럽 추가',50],['블렌드 2',4500],['라떼',4000]]);
 });

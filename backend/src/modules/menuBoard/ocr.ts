@@ -112,22 +112,32 @@ export function parseMenuBoard(value: unknown): MenuCandidate[] {
     const ordered = row.sort((a, b) => a.x - b.x);
     let names: string[] = [];
     let confidence = 1;
-    for (const word of ordered) {
-      const match = word.name.match(thousandWon
-        ? /^(?:(.*?)\s+)?(\d{1,3}(?:,\d{3})+|\d{1,3}\.\d{1,2}|\d{1,7})\s*원?$/
-        : /^(?:(.*?)\s+)?(\d{1,3}(?:,\d{3})+|\d{1,3}\.\d{1,2}|\d{3,7})\s*원?$/
-      );
+    const pricePattern = thousandWon
+        ? /^(?:(.*?)\s+)?(\d{1,3}(?:,\d{3})+|\d{1,3}\.\d{1,2}|\d{1,7})\s*(원)?$/
+        : /^(?:(.*?)\s+)?(\d{1,3}(?:,\d{3})+|\d{1,3}\.\d{1,2}|\d{3,7}|\d{1,2}(?=\s*원$))\s*(원)?$/;
+    for (const [index, word] of ordered.entries()) {
+      const match = word.name.replace(/^\/\s*/, "").match(pricePattern);
       confidence = Math.min(confidence, Math.max(0, word.confidence));
       if (!match) {
         names.push(word.name);
         continue;
       }
+      // A number followed by another price without a new menu label belongs
+      // to the current name (e.g. "블렌드 2 / 4.5"), not an earlier price.
+      let numberInName = false;
+      for (const next of ordered.slice(index + 1)) {
+        const following = next.name.replace(/^\/\s*/, "").match(pricePattern);
+        if (following) { numberInName = !following[1] && !match[3]; break; }
+        if (/\p{L}/u.test(next.name)) break;
+      }
+      if (numberInName) { names.push(word.name); continue; }
       if (match[1]) names.push(match[1]);
       const raw = names.join(" ");
       const decimal = match[2].includes(".");
       const amount = Number(match[2].replace(/,/g, ""));
-      const shortInteger = thousandWon && /^\d{1,2}$/.test(match[2]);
-      const price = shortInteger ? amount * 1000 : decimal
+      const explicitWon = !!match[3];
+      const shortInteger = !explicitWon && thousandWon && /^\d{1,2}$/.test(match[2]);
+      const price = explicitWon ? amount : shortInteger ? amount * 1000 : decimal
         ? thousandWon
           ? Math.round(amount * 1000)
           : null
@@ -147,6 +157,7 @@ export function parseMenuBoard(value: unknown): MenuCandidate[] {
         .replace(/\b(?:HOT|ICE[D]?|LARGE|REGULAR)\b/gi, "")
         .replace(/[()\[\]]/g, "")
         .replace(/\s+/g, " ")
+        .replace(/[/:：]\s*$/, "")
         .trim();
       if (
         name &&
@@ -154,7 +165,7 @@ export function parseMenuBoard(value: unknown): MenuCandidate[] {
         /\p{L}/u.test(name) &&
         !/^(?:합계|총액|전화|사업자|단위)/.test(name) &&
         amount > 0 &&
-        (price === null || (price >= 100 && price <= 1000000))
+        (price === null || (Number.isInteger(price) && price >= (explicitWon ? 1 : 100) && price <= 1000000))
       ) {
         const category = /디카페인|decaf/i.test(name)
           ? "DECAF"

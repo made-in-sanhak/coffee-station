@@ -558,3 +558,8 @@ test('an unreadable option can target an existing size and temperature for a pri
  expect(mockApi.applyMenuDiff.mock.calls[0][1].changes).toEqual([expect.objectContaining({kind:'PRICE_CHANGED',menuId:'old-latte',size:'Large',temperature:'HOT',previousPrice:4000,price:4500})]);
  await act(()=>tree.unmount());
 });
+
+
+test('known temperature with missing size stays off until the owner selects a size', () => {
+ expect(defaultDiffEnabled({kind:'NEW',menuId:null,name:'라떼',category:'COFFEE',size:'Regular',temperature:'HOT',previousPrice:null,price:4500,existingOptions:[{menuId:'large',name:'라떼',category:'COFFEE',size:'Large',temperature:'HOT',price:4000}]})).toBe(false);
+});

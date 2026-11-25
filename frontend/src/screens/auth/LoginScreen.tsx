@@ -46,9 +46,9 @@ export default function LoginScreen({
       <View style={styles.main}>
         <View style={styles.logo}>
           <Coffee
-            size={35}
+            size={48}
             color="#FFFFFF"
-            strokeWidth={1.5}
+            strokeWidth={1.6}
           />
         </View>
 
@@ -87,9 +87,6 @@ export default function LoginScreen({
       </View>
 
       <View style={styles.footer}>
-        {__DEV__ && <Pressable accessibilityRole="button" onPress={() => navigation.navigate('MidtermTest')}>
-          <Text style={styles.ownerLogin}>개발용 MVP 추천 테스트 (로그인 불필요)</Text>
-        </Pressable>}
         <Pressable
           accessibilityRole="button"
           onPress={handleKakaoLogin}
@@ -135,9 +132,9 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
   logo: {
-    width: 64,
-    height: 64,
-    borderRadius: 18,
+    width: 96,
+    height: 96,
+    borderRadius: 28,
     backgroundColor: GREEN,
     alignItems: 'center',
     justifyContent: 'center',

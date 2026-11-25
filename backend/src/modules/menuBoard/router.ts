@@ -59,7 +59,7 @@ const canonicalName = (name: string) =>
 const nameKey = (value: Pick<MenuCandidate, "name" | "category">) =>
   JSON.stringify([
     canonicalName(value.name).replace(/\s/g, "").toLowerCase(),
-    value.category === "DECAF",
+    value.category === "DECAF" || (value.category === null && /디카페인|decaf/i.test(value.name)),
   ]);
 const key = (value: Option) =>
   JSON.stringify([nameKey(value), sizeKey(value.size), value.temperature]);

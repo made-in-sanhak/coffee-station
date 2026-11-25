@@ -346,3 +346,31 @@ test('unknown price columns require manual confirmation without false missing me
  const diff=menuDifference(items,[{menuId:'1',name:'아메리카노',category:'COFFEE',size:'Regular',temperature:'HOT',price:3000,available:true}]);
  assert.equal(diff.unchanged.length,1);assert.ok(!diff.changes.some(x=>x.kind==='MISSING'));
 });
+
+
+test('independent same-height menus are split before price-column handling',()=>{
+ for(const withHeader of [false,true]) {
+  const fields=[...(withHeader?[field('메뉴',0,0),field('HOT',200,0),field('ICE',400,0)]:[]),field('아메리카노',0,30),field('4,000',200,30),field('카페라떼',400,30),field('4,500',600,30),field('바닐라라떼',800,30),field('5,000',1000,30)];
+  const items=ocr.parseMenuBoard({images:[{inferResult:'SUCCESS',fields:fields.reverse()}]});
+  assert.deepEqual(items.map(x=>[x.name,x.price]),[['아메리카노',4000],['카페라떼',4500],['바닐라라떼',5000]]);
+  const current=items.map((x,i)=>({...x,menuId:String(i),size:'Regular',temperature:'HOT',available:true}));
+  assert.ok(!menuDifference(items,current).changes.some(x=>x.kind==='MISSING'));
+ }
+});
+
+test('manual multiple-price candidates preserve decaf identity and never target regular coffee',()=>{
+ const items=ocr.parseMenuBoard({images:[{inferResult:'SUCCESS',fields:[field('디카페인 아메리카노',0,30),field('4,000',200,30),field('4,500',400,30)]}]});
+ assert.equal(items[0].category,'DECAF');assert.equal(items[0].price,null);
+ const current=[{menuId:'regular',name:'아메리카노',category:'COFFEE',size:'Regular',temperature:'HOT',price:3000,available:true},{menuId:'decaf',name:'디카페인 아메리카노',category:'DECAF',size:'Regular',temperature:'HOT',price:4000,available:true}];
+ const diff=menuDifference(items,current);
+ assert.deepEqual(diff.changes[0].existingOptions.map(x=>x.menuId),['decaf']);
+ assert.ok(!diff.changes.some(x=>x.kind==='MISSING'&&x.menuId==='decaf'));
+ const fallback=menuDifference([{...items[0],category:null}],current);
+ assert.deepEqual(fallback.changes[0].existingOptions.map(x=>x.menuId),['decaf']);
+});
+
+test('several independent menus can each have HOT and ICE columns',()=>{
+ const fields=[field('메뉴',0,0),field('HOT',200,0),field('ICE',300,0),field('아메리카노',0,30),field('4,000',200,30),field('4,500',300,30),field('카페라떼',500,30),field('5,000',700,30),field('5,500',800,30)];
+ const items=ocr.parseMenuBoard({images:[{inferResult:'SUCCESS',fields}]});
+ assert.deepEqual(items.map(x=>[x.name,x.temperature,x.price]),[['아메리카노','HOT',4000],['아메리카노','ICE',4500],['카페라떼','HOT',5000],['카페라떼','ICE',5500]]);
+});

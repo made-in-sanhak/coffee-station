@@ -58,6 +58,20 @@ type Word = {
   confidence: number;
 };
 
+function classifyMenu(name: string): Category | null {
+  return /디카페인|decaf/i.test(name)
+          ? "DECAF"
+          : /아메리카노|라[떼테]|커피|모카|카푸치노|콜드브루|espresso|coffee|latte/i.test(
+              name
+            )
+          ? "COFFEE"
+          : /에이드|주스|스무디|초코|ade|juice/i.test(name)
+          ? "BEVERAGE"
+          : /티$|차$|\btea\b/i.test(name)
+          ? "TEA"
+          : null;
+}
+
 export function parseMenuBoard(value: unknown): MenuCandidate[] {
   const root = object(value);
   const image = Array.isArray(root.images) && root.images[0];
@@ -115,21 +129,34 @@ export function parseMenuBoard(value: unknown): MenuCandidate[] {
   let temperatures: string[] = [];
   const expanded: Word[][] = [];
   for (const row of rows) {
-    const ordered = [...row].sort((a,b)=>a.x-b.x);
-    const headers = ordered.filter(word=>/^(HOT|ICE|ICED)$/i.test(word.name));
+    const words = [...row].sort((a,b)=>a.x-b.x);
+    const headers = words.filter(word=>/^(HOT|ICE|ICED)$/i.test(word.name));
     if (headers.length === 2 && new Set(headers.map(w=>w.name.toUpperCase().replace('ICED','ICE'))).size === 2) {
       temperatures = headers.map(w=>w.name.toUpperCase().replace('ICED','ICE'));
       continue;
     }
-    const prices = ordered.filter(word=>{const match=word.name.match(pricePattern);return match && !match[1];});
-    const first = prices.length ? ordered.indexOf(prices[0]) : -1;
-    if (prices.length === 2 && first > 0 && temperatures.length === 2) {
-      for (let i=0;i<2;i++) expanded.push([...ordered.slice(0,first), {...prices[i],name:temperatures[i],x:prices[i].x-1},prices[i]]);
-    } else if (prices.length > 1 && first > 0 && !ordered.some(word=>word.name === "/")) {
-      // Unknown price columns: keep the clean menu name for manual confirmation.
-      const name=ordered.slice(0,first).map(w=>w.name).join(' ');
-      items.push({name,category:null,size:null,temperature:null,price:null,confidence:0,note:'가격 열을 구분하지 못했어요. 기존 옵션과 가격을 직접 확인해 주세요.'});
-    } else expanded.push(ordered);
+    // A new text label between prices begins a different menu, even when both
+    // menus are on the same horizontal line. Split those pairs before columns.
+    const priceIndexes = words.flatMap((word,i)=>{const m=word.name.match(pricePattern);return m&&!m[1]?[i]:[];});
+    const segments: Word[][] = [];
+    let begin = 0;
+    for (let i=0;i<priceIndexes.length-1;i++) {
+      const left=priceIndexes[i],right=priceIndexes[i+1];
+      if (words.slice(left+1,right).some(word=>/\p{L}/u.test(word.name))) {
+        segments.push(words.slice(begin,left+1));begin=left+1;
+      }
+    }
+    segments.push(words.slice(begin));
+    for (const ordered of segments) {
+      const prices = ordered.filter(word=>{const m=word.name.match(pricePattern);return m&&!m[1];});
+      const first = prices.length ? ordered.indexOf(prices[0]) : -1;
+      if (prices.length === 2 && first > 0 && temperatures.length === 2) {
+        for (let i=0;i<2;i++) expanded.push([...ordered.slice(0,first), {...prices[i],name:temperatures[i],x:prices[i].x-1},prices[i]]);
+      } else if (prices.length > 1 && first > 0 && !ordered.some(word=>word.name === "/")) {
+        const name=ordered.slice(0,first).map(w=>w.name).join(' ');
+        items.push({name,category:classifyMenu(name),size:null,temperature:null,price:null,confidence:0,note:'가격 열을 구분하지 못했어요. 기존 옵션과 가격을 직접 확인해 주세요.'});
+      } else expanded.push(ordered);
+    }
   }
   for (const ordered of expanded) {
     let names: string[] = [];
@@ -186,17 +213,7 @@ export function parseMenuBoard(value: unknown): MenuCandidate[] {
         amount > 0 &&
         (price === null || (Number.isInteger(price) && price >= (explicitWon ? 1 : 100) && price <= 1000000))
       ) {
-        const category = /디카페인|decaf/i.test(name)
-          ? "DECAF"
-          : /아메리카노|라[떼테]|커피|모카|카푸치노|콜드브루|espresso|coffee|latte/i.test(
-              name
-            )
-          ? "COFFEE"
-          : /에이드|주스|스무디|초코|ade|juice/i.test(name)
-          ? "BEVERAGE"
-          : /티$|차$|\btea\b/i.test(name)
-          ? "TEA"
-          : null;
+        const category = classifyMenu(name);
         items.push({
           name,
           category,

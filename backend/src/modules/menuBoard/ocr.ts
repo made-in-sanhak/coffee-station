@@ -113,6 +113,18 @@ export function parseMenuBoard(value: unknown): MenuCandidate[] {
   // General OCR may split a monetary suffix into its own field. Normalize
   // adjacent tokens before unit detection, menu boundaries, and price columns.
   for (const row of rows) {
+    // Normalize combined name/price fields as well as numeric-only fields.
+    // Keeping their relative order makes every later stage independent of OCR
+    // token boundaries, including HOT/ICE columns and adjacent menu pairs.
+    for (let i=0;i<row.length;i++) {
+      const word=row[i];
+      const combined=word.name.match(/^(.*?)\s+(\d{1,9}|\d{1,3}(?:,\d{3})+|\d{1,3}\.\d{1,2})\s*(원)?$/);
+      if (combined?.[1]) {
+        row.splice(i,1,{...word,name:combined[1].trim()},
+          {...word,name:combined[2]+(combined[3]||""),x:word.x+0.01});
+        i++;
+      }
+    }
     row.sort((a,b)=>a.x-b.x);
     for (let i=1;i<row.length;i++) {
       if (row[i].name === "원" && /^(?:\d{1,9}|\d{1,3}(?:,\d{3})+|\d{1,3}\.\d{1,2})$/.test(row[i-1].name)) {

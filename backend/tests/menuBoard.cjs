@@ -404,3 +404,28 @@ test('a low-confidence detached currency token keeps its price in manual review'
  const diff=menuDifference([{...items[0],size:'Regular',temperature:'HOT'}],[{menuId:'1',name:'라떼',category:'COFFEE',size:'Regular',temperature:'HOT',price:4000,available:true}]);
  assert.equal(diff.changes[0].price,null);
 });
+
+
+test('all four name/number/currency tokenizations preserve explicit won under a thousand-won header',()=>{
+ const variants=[['시럽 추가 50원'],['시럽 추가','50원'],['시럽 추가','50','원'],['시럽 추가 50','원']];
+ const parse=parts=>ocr.parseMenuBoard({images:[{inferResult:'SUCCESS',fields:[field('단위: 1,000원',0,0),...parts.map((text,i)=>field(text,i*100,30))].reverse()}]});
+ const expected=parse(variants[0]);assert.deepEqual(expected.map(x=>[x.name,x.price]),[['시럽 추가',50]]);
+ for(const parts of variants) assert.deepEqual(parse(parts),expected,parts.join(' | '));
+});
+
+test('combined menu/price fields retain HOT/ICE columns and independent menu pairs',()=>{
+ const parse=fields=>ocr.parseMenuBoard({images:[{inferResult:'SUCCESS',fields}]});
+ const headers=[field('메뉴',0,0),field('HOT',200,0),field('ICE',400,0)];
+ const reference=parse([...headers,field('아메리카노',0,30),field('4,000원',200,30),field('4,500원',400,30)]);
+ for(const splitWon of [false,true]) {
+  const fields=[...headers,field('아메리카노 4,000'+(splitWon?'':'원'),0,30),...(splitWon?[field('원',100,30)]:[]),field('4,500원',400,30)];
+  assert.deepEqual(parse(fields),reference);
+ }
+ const pairs=parse([field('아메리카노 4,000',0,30),field('원',100,30),field('카페라떼 4,500',400,30),field('원',500,30)]);
+ assert.deepEqual(pairs.map(x=>[x.name,x.price]),[['아메리카노',4000],['카페라떼',4500]]);
+});
+
+test('combined name/price plus detached low-confidence won remains a manual price candidate',()=>{
+ const items=ocr.parseMenuBoard({images:[{inferResult:'SUCCESS',fields:[field('라떼 4,500',0,30),field('원',200,30,.2)]}]});
+ assert.equal(items[0].name,'라떼');assert.equal(items[0].price,4500);assert.equal(items[0].confidence,.2);
+});

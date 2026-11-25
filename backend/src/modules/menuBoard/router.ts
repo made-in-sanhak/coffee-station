@@ -149,6 +149,7 @@ export function menuDifference(items: MenuCandidate[], current: Stored[]) {
         ...item,
         size: item.size ?? "Regular",
         kind: "NEW",
+        existingOptions: compatible,
         previousPrice: null,
         price: item.confidence >= 0.8 ? item.price : null,
       });

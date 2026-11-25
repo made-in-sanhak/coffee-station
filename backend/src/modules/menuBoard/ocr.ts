@@ -113,8 +113,9 @@ export function parseMenuBoard(value: unknown): MenuCandidate[] {
     let names: string[] = [];
     let confidence = 1;
     for (const word of ordered) {
-      const match = word.name.match(
-        /^(?:(.*?)\s+)?(\d{1,3}(?:,\d{3})+|\d{1,3}\.\d{1,2}|\d{3,7})\s*원?$/
+      const match = word.name.match(thousandWon
+        ? /^(?:(.*?)\s+)?(\d{1,3}(?:,\d{3})+|\d{1,3}\.\d{1,2}|\d{1,7})\s*원?$/
+        : /^(?:(.*?)\s+)?(\d{1,3}(?:,\d{3})+|\d{1,3}\.\d{1,2}|\d{3,7})\s*원?$/
       );
       confidence = Math.min(confidence, Math.max(0, word.confidence));
       if (!match) {
@@ -125,7 +126,8 @@ export function parseMenuBoard(value: unknown): MenuCandidate[] {
       const raw = names.join(" ");
       const decimal = match[2].includes(".");
       const amount = Number(match[2].replace(/,/g, ""));
-      const price = decimal
+      const shortInteger = thousandWon && /^\d{1,2}$/.test(match[2]);
+      const price = shortInteger ? amount * 1000 : decimal
         ? thousandWon
           ? Math.round(amount * 1000)
           : null

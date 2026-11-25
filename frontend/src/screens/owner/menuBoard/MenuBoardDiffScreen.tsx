@@ -58,7 +58,7 @@ export default function MenuBoardDiffScreen({
 }: RootStackScreenProps<'MenuBoardDiff'>) {
   const cafe = useMenuBoardStore(state => state.cafe);
   const diff = useMenuBoardStore(state => state.diff);
-  const unchanged = diff?.unchanged ?? [];
+
   // 새 메뉴 정보와 기존 메뉴의 변경 가격을 점주가 고칠 수 있도록 화면 상태로 관리합니다.
   const [changes, setChanges] = useState<MenuDiffItem[]>(() => diff?.changes ?? []);
   const [enabled, setEnabled] = useState<boolean[]>(() => (diff?.changes ?? []).map(defaultDiffEnabled));
@@ -66,6 +66,7 @@ export default function MenuBoardDiffScreen({
   const [draft, setDraft] = useState<MenuDraft | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const unchanged = (diff?.unchanged ?? []).filter(item => !changes.some(change => change.kind !== 'NEW' && change.menuId === item.menuId));
   const summary = diffSummary(changes);
   const selected = changes.filter((_, index) => enabled[index]);
 
@@ -99,6 +100,19 @@ export default function MenuBoardDiffScreen({
       return;
     }
     enableIfValid(index, changes);
+  };
+  const chooseExisting = (index: number, target: NonNullable<MenuDiffItem['existingOptions']>[number]) => {
+    if (changes.some((change, i) => i !== index && change.menuId === target.menuId)) {
+      setRowError(index, '같은 기존 옵션이 이미 변경 목록에 있어요.');
+      return;
+    }
+    const next = changes.map((item, i) => i === index ? {
+      ...item, ...target, kind: 'PRICE_CHANGED' as const, previousPrice: target.price,
+      price: item.price, existingOptions: undefined,
+    } : item);
+    setChanges(next);
+    setEnabled(setOne(enabled, index, diffItemMissing(next[index]) === null));
+    setRowError(index, diffItemMissing(next[index]));
   };
   const chooseTemperature = (index: number, temperature: 'HOT' | 'ICE') => {
     setError(null);
@@ -225,6 +239,20 @@ export default function MenuBoardDiffScreen({
                     onChange={value => toggle(index, value)}
                   />
                 </View>
+                {isNew && !!item.existingOptions?.length && (
+                  <View style={styles.hint}>
+                    <Text style={styles.hintText}>기존 메뉴의 가격 변경인가요? 대상 옵션을 선택해 주세요.</Text>
+                    <View style={styles.choices}>
+                      {item.existingOptions.map(target => (
+                        <Pressable key={target.menuId} accessibilityRole="button"
+                          testID={`menu-diff-existing-${index}-${target.menuId}`}
+                          onPress={() => chooseExisting(index, target)} style={styles.smallButton}>
+                          <Text style={styles.smallButtonText}>{target.size} · {temperatureLabel(target.temperature)} · {formatMoney(target.price)}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+                )}
                 {isNew && item.temperature === null && (
                   <View style={styles.hint} testID={`menu-diff-temp-hint-${index}`}>
                     <Text style={styles.hintText}>

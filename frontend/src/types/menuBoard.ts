@@ -48,6 +48,7 @@ export type MenuDiffKind = 'PRICE_CHANGED' | 'NEW' | 'MISSING';
 // POST /api/owner/menu-board/diff 응답 항목
 export interface MenuDiffItem {
   kind: MenuDiffKind;
+  existingOptions?: Array<{ menuId: string; name: string; category: MenuBoardCategory; size: string; temperature: MenuBoardTemperature; price: number }>;
   // 기존 메뉴 id (NEW 는 없음)
   menuId?: string | null;
   name: string;

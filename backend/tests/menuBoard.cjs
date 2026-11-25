@@ -189,11 +189,18 @@ test(
           .status,
         409
       );
+      const unresolved = (await call(owner + '/menu-board/diff', {cafeId,images:[photo]})).data;
+      const candidate = unresolved.changes.find(item=>item.name==='카페라떼' && item.kind==='NEW');
+      const target = candidate.existingOptions.find(item=>item.temperature==='HOT');
+      assert.ok(target);
+      const corrected = await call(owner+'/menus/apply-diff', {cafeId,changes:[{...target,kind:'PRICE_CHANGED',previousPrice:target.price,price:3100}]});
+      assert.equal(corrected.status,200,corrected.message);
       const options = (await call("/api/cafes/2/menus")).data;
+      assert.equal(options.filter(item=>item.name==='카페라떼').length,1);
       assert.ok(
         options.some(
           (item) =>
-            item.name === "카페라떼" && item.price === 2900 && item.available
+            item.name === "카페라떼" && item.price === 3100 && item.available
         )
       );
       assert.ok(
@@ -291,4 +298,21 @@ test("decimal prices use an explicit thousand-won unit without changing ordinary
     [3500, 4900, 2000]
   );
   assert.ok(items.every((x) => x.confidence > 0.8));
+});
+
+
+test('missing size and temperature offer explicit existing targets without guessing', () => {
+ const option=(menuId,size,temperature)=>({menuId,name:'카페라떼',category:'COFFEE',size,temperature,price:4000,available:true});
+ const current=[option('10','Regular','HOT'),option('11','Large','ICE')];
+ const diff=menuDifference([{name:'카페라떼',category:'COFFEE',size:null,temperature:null,price:4500,confidence:.99}],current);
+ assert.equal(diff.changes[0].kind,'NEW');
+ assert.deepEqual(diff.changes[0].existingOptions.map(x=>x.menuId),['10','11']);
+ assert.equal(diff.unchanged.length,2);
+});
+
+test('explicit thousand-won menus retain both short integers and decimals', () => {
+ const parsed=ocr.parseMenuBoard({images:[{inferResult:'SUCCESS',fields:[field('단위: 천원',0,0),field('아메리카노',0,30),field('4',300,30),field('카페라떼',0,60),field('4.5',300,60)]}]});
+ assert.deepEqual(parsed.map(x=>x.price),[4000,4500]);
+ const unknown=ocr.parseMenuBoard({images:[{inferResult:'SUCCESS',fields:[field('아메리카노',0,30),field('4',300,30)]}]});
+ assert.equal(unknown.length,0);
 });

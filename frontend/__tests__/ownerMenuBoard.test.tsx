@@ -543,3 +543,18 @@ test('an uncertain existing price can be filled in and submitted without changin
   ]);
   await act(() => tree.unmount());
 });
+
+
+test('an unreadable option can target an existing size and temperature for a price update', async () => {
+ useMenuBoardStore.getState().start('update',cafe);
+ const target={menuId:'old-latte',name:'카페라떼',category:'COFFEE' as const,size:'Large',temperature:'HOT' as const,price:4000};
+ useMenuBoardStore.getState().setDiff({changes:[{kind:'NEW',menuId:null,name:'카페라떼',category:'COFFEE',size:'Regular',temperature:null,previousPrice:null,price:4500,existingOptions:[target]}],unchanged:[target]});
+ mockApi.applyMenuDiff.mockResolvedValue({applied:1});
+ const navigation=nav();let tree!:Renderer.ReactTestRenderer;
+ await act(()=>{tree=Renderer.create(<MenuBoardDiffScreen {...({navigation,route:route('MenuBoardDiff')} as any)} />);});
+ await act(()=>find(tree,'menu-diff-existing-0-old-latte').props.onPress());
+ expect(texts(tree)).not.toContain('그대로인 메뉴 1개는 바뀌지 않아요');
+ await act(async()=>{await find(tree,'menu-diff-apply').props.onPress();});
+ expect(mockApi.applyMenuDiff.mock.calls[0][1].changes).toEqual([expect.objectContaining({kind:'PRICE_CHANGED',menuId:'old-latte',size:'Large',temperature:'HOT',previousPrice:4000,price:4500})]);
+ await act(()=>tree.unmount());
+});

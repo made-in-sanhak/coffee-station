@@ -1219,7 +1219,7 @@ START TRANSACTION;
 SET @hs_brand_base = (SELECT COALESCE(MAX(brand_id), 0) FROM brands);
 INSERT INTO brands (brand_id, name)
 SELECT @hs_brand_base + ROW_NUMBER() OVER (ORDER BY s.brand_name), s.brand_name
-FROM hs_stores s
+FROM (SELECT DISTINCT brand_name FROM hs_stores) s
 WHERE EXISTS (SELECT 1 FROM hs_id_guard)
   AND NOT EXISTS (SELECT 1 FROM brands b WHERE b.name = s.brand_name);
 
@@ -1236,7 +1236,8 @@ WHERE EXISTS (SELECT 1 FROM hs_id_guard)
 UPDATE cafes AS c
 JOIN hs_stores AS s ON s.cafe_id = c.cafe_id AND s.cafe_name = c.name
 SET c.latitude = s.latitude, c.longitude = s.longitude
-WHERE EXISTS (SELECT 1 FROM hs_id_guard);
+WHERE EXISTS (SELECT 1 FROM hs_id_guard)
+  AND COALESCE(@hs_preserve_existing_coordinates, 0) = 0;
 
 SET @hs_menu_base = (SELECT COALESCE(MAX(menu_id), 0) FROM menus);
 INSERT INTO menus (menu_id, standard_name, category, has_milk)

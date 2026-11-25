@@ -16,8 +16,10 @@ test(
     });
     try {
       await require('./fixtures/setupCommunity.cjs').setup(c, { legacy: true });
-    await c.query('ALTER TABLE users DROP COLUMN active');
-    await c.query('ALTER TABLE refresh_tokens DROP INDEX session_lookup, DROP COLUMN session_id');
+      await c.query('ALTER TABLE users DROP COLUMN active');
+      await c.query(
+        'ALTER TABLE refresh_tokens DROP INDEX session_lookup, DROP COLUMN session_id',
+      );
       await c.query(
         "INSERT INTO users(user_id,kakao_id,nickname,role) VALUES(1,'7777','team unrelated','USER'),(9,'8888','team owner','OWNER')",
       );
@@ -52,7 +54,18 @@ test(
         "INSERT INTO refresh_tokens(user_id,token_hash,expires_at) VALUES(9,REPEAT('a',64),DATE_ADD(NOW(),INTERVAL 1 DAY))",
       );
       const { migrateAuth } = require('../scripts/migrate-auth.cjs');
-      await migrateAuth(c);
+      const backupDir = await require('node:fs/promises').mkdtemp(
+        require('node:path').join(
+          require('node:os').tmpdir(),
+          'coffee-legacy-backup-',
+        ),
+      );
+      const prepared =
+        await require('../scripts/prepare-development-db.cjs').prepareDevelopmentDatabase(
+          { db: env.db, seed: false, backupDir, log: () => {} },
+        );
+      assert.ok(prepared.backupFile);
+      assert.ok(prepared.applied.includes('005_unified_auth'));
       const [map] = await c.query(
         'SELECT legacy_id,user_id FROM legacy_community_user_map ORDER BY legacy_id',
       );

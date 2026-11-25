@@ -413,6 +413,39 @@ test('all four name/number/currency tokenizations preserve explicit won under a 
  for(const parts of variants) assert.deepEqual(parse(parts),expected,parts.join(' | '));
 });
 
+test('a separate price field preserves a numeric menu name with or without a separator', () => {
+  const current = [{
+    menuId: '25', name: '블렌드 2', category: 'COFFEE', size: 'Regular',
+    temperature: 'HOT', price: 4000, available: true,
+  }];
+  for (const separator of [[], ['/']]) {
+    const parts = ['블렌드 2', ...separator, '4.5'];
+    const fields = [
+      field('단위: 천원', 0, 0),
+      ...parts.map((name, index) => field(name, index * 150, 30)),
+    ];
+    const items = ocr.parseMenuBoard({ images: [{ inferResult: 'SUCCESS', fields: fields.reverse() }] });
+    assert.deepEqual(items.map(({ name, price }) => [name, price]), [['블렌드 2', 4500]]);
+    const diff = menuDifference(items, current);
+    assert.equal(diff.changes.length, 1);
+    assert.equal(diff.changes[0].existingOptions[0].menuId, '25');
+  }
+});
+
+test('a numeric menu name survives HOT and ICE columns next to another menu', () => {
+  const fields = [
+    field('단위: 천원', 0, 0), field('메뉴', 0, 30), field('HOT', 150, 30), field('ICE', 300, 30),
+    field('블렌드 2', 0, 60), field('4.5', 150, 60), field('4.9', 300, 60),
+    field('시럽 추가 50', 500, 60), field('원', 630, 60),
+  ];
+  const items = ocr.parseMenuBoard({ images: [{ inferResult: 'SUCCESS', fields: fields.reverse() }] });
+  assert.deepEqual(items.map(({ name, temperature, price }) => [name, temperature, price]), [
+    ['블렌드 2', 'HOT', 4500],
+    ['블렌드 2', 'ICE', 4900],
+    ['시럽 추가', null, 50],
+  ]);
+});
+
 test('combined menu/price fields retain HOT/ICE columns and independent menu pairs',()=>{
  const parse=fields=>ocr.parseMenuBoard({images:[{inferResult:'SUCCESS',fields}]});
  const headers=[field('메뉴',0,0),field('HOT',200,0),field('ICE',400,0)];

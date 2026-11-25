@@ -56,7 +56,11 @@ type Word = {
   y: number;
   height: number;
   confidence: number;
+  isMenuLabel?: boolean;
 };
+
+const standaloneAmount = /^(?:\d{1,9}|\d{1,3}(?:,\d{3})+|\d{1,3}\.\d{1,2})$/;
+const combinedPrice = /^(.*?)\s+(\d{1,9}|\d{1,3}(?:,\d{3})+|\d{1,3}\.\d{1,2})\s*(원)?$/;
 
 function classifyMenu(name: string): Category | null {
   return /디카페인|decaf/i.test(name)
@@ -113,26 +117,34 @@ export function parseMenuBoard(value: unknown): MenuCandidate[] {
   // General OCR may split a monetary suffix into its own field. Normalize
   // adjacent tokens before unit detection, menu boundaries, and price columns.
   for (const row of rows) {
-    // Normalize combined name/price fields as well as numeric-only fields.
-    // Keeping their relative order makes every later stage independent of OCR
-    // token boundaries, including HOT/ICE columns and adjacent menu pairs.
-    for (let i=0;i<row.length;i++) {
-      const word=row[i];
-      const combined=word.name.match(/^(.*?)\s+(\d{1,9}|\d{1,3}(?:,\d{3})+|\d{1,3}\.\d{1,2})\s*(원)?$/);
-      if (combined?.[1]) {
-        row.splice(i,1,{...word,name:combined[1].trim()},
-          {...word,name:combined[2]+(combined[3]||""),x:word.x+0.01});
-        i++;
-      }
-    }
-    row.sort((a,b)=>a.x-b.x);
-    for (let i=1;i<row.length;i++) {
-      if (row[i].name === "원" && /^(?:\d{1,9}|\d{1,3}(?:,\d{3})+|\d{1,3}\.\d{1,2})$/.test(row[i-1].name)) {
-        row[i-1] = {...row[i-1], name: row[i-1].name + "원",
-          confidence: Math.min(row[i-1].confidence,row[i].confidence)};
-        row.splice(i,1);
+    row.sort((a, b) => a.x - b.x);
+    for (let i = 1; i < row.length; i++) {
+      const previous = row[i - 1];
+      const combined = previous.name.match(combinedPrice);
+      if (row[i].name === "원" && (standaloneAmount.test(previous.name) || (combined && !combined[3]))) {
+        row[i - 1] = {
+          ...previous, name: previous.name + "원",
+          confidence: Math.min(previous.confidence, row[i].confidence),
+        };
+        row.splice(i, 1);
         i--;
       }
+    }
+    for (let i = 0; i < row.length; i++) {
+      const word = row[i];
+      const combined = word.name.match(combinedPrice);
+      if (!combined?.[1]) continue;
+      const nextPrice = row[row[i + 1]?.name === "/" ? i + 2 : i + 1]?.name
+        .replace(/^\/\s*|\s*원$/g, "");
+      // A short bare suffix in a name field can be part of the menu name
+      // when the amount lives in its own field, as in "블렌드 2" | "4.5".
+      if (!combined[3] && /^\d{1,2}$/.test(combined[2]) && nextPrice && standaloneAmount.test(nextPrice)) {
+        row[i] = { ...word, isMenuLabel: true };
+        continue;
+      }
+      row.splice(i, 1, { ...word, name: combined[1].trim() },
+        { ...word, name: combined[2] + (combined[3] ?? ""), x: word.x + 0.01 });
+      i++;
     }
   }
   const items: MenuCandidate[] = [];
@@ -187,7 +199,7 @@ export function parseMenuBoard(value: unknown): MenuCandidate[] {
     let names: string[] = [];
     let confidence = 1;
     for (const [index, word] of ordered.entries()) {
-      const match = word.name.replace(/^\/\s*/, "").match(pricePattern);
+      const match = word.isMenuLabel ? null : word.name.replace(/^\/\s*/, "").match(pricePattern);
       confidence = Math.min(confidence, Math.max(0, word.confidence));
       if (!match) {
         names.push(word.name);
@@ -197,7 +209,7 @@ export function parseMenuBoard(value: unknown): MenuCandidate[] {
       // to the current name (e.g. "블렌드 2 / 4.5"), not an earlier price.
       let numberInName = false;
       for (const next of ordered.slice(index + 1)) {
-        const following = next.name.replace(/^\/\s*/, "").match(pricePattern);
+        const following = next.isMenuLabel ? null : next.name.replace(/^\/\s*/, "").match(pricePattern);
         if (following) { numberInName = !following[1] && !match[3]; break; }
         if (/\p{L}/u.test(next.name)) break;
       }
